@@ -1,49 +1,86 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import Button from "@material-ui/core/Button";
+import Card from '@material-ui/core/Card';
+import CardActions from '@material-ui/core/CardActions';
+import CardContent from '@material-ui/core/CardContent';
+import Button from '@material-ui/core/Button';
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
+import FormHelperText from '@material-ui/core/FormHelperText';
+import FormControl from '@material-ui/core/FormControl';
+import Select from '@material-ui/core/Select';
+import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
+import TextField from '@material-ui/core/TextField';
+import { useSelector, useDispatch } from 'react-redux'
+
 import {
   NotificationContainer,
   NotificationManager
 } from "react-notifications";
 import "react-notifications/lib/notifications.css";
-import { ethers } from "ethers";
-import abi from "ethereumjs-abi";
+import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
-import { InstaExit } from "@biconomy/inex";
+import { InstaExit, SignatureType, RESPONSE_CODES } from "@biconomy/inex";
 import { makeStyles } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
-import Typography from '@material-ui/core/Typography';
-import { Box } from "@material-ui/core";
-let sigUtil = require("eth-sig-util");
-var EthUtil = require('ethereumjs-util');
-const { config } = require("./config");
-const EIP712_SIGN = "EIP712_SIGN";
-const PERSONAL_SIGN = "PERSONAL_SIGN";
+import TokenListContainer from "./components/TokenListContainer";
+import {config} from "./config";
+import { 
+  updateSelectedFromChain, 
+  updateSelectedToChain, 
+  updateTokenAmount,
+  updateSupportedTokens,
+  updateSupportedTokensAndSelectedToken } from "./redux";
 
-let instaExit ;
 let ethersProvider, signer;
 let contract, contractInterface, contractWithBasicSign;
 
 const useStyles = makeStyles((theme) => ({
   root: {
-    '& > * + *': {
-      marginLeft: theme.spacing(2),
-    },
+    minWidth: 275,
   },
-  link: {
-    marginLeft: "5px"
+  formControl: {
+    margin: theme.spacing(1),
+    minWidth: 150,
+  },
+  cardRow: {
+    display: "flex",
+    flexDirection: "row",
+    padding: "10px",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  title: {
+    fontSize: 14,
+  },
+  pos: {
+    marginBottom: 12,
+  },
+  mainContainer: {
+    width: "500px",
+    marginLeft: "auto",
+    marginRight: "auto",
+    position: "relative",
+    top: "100px"
   }
 }));
 
+const fromChainList = [config.chains.MUMBAI, config.chains.GOERLI];
+const toChainList = [config.chains.MUMBAI, config.chains.GOERLI];
+
 function App() {
   const classes = useStyles();
+  const dispatch = useDispatch();
+
+  const selectedToken = useSelector(state => state.tokens.selectedToken);
+  const selectedFromChain = useSelector(state => state.network.selectedFromChain);
+  const selectedToChain = useSelector(state => state.network.selectedToChain);
+  const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
+
   const preventDefault = (event) => event.preventDefault();
-  const [quote, setQuote] = useState("This is a default quote");
-  const [owner, setOwner] = useState("Default Owner Address");
-  const [newQuote, setNewQuote] = useState("");
-  const [selectedAddress, setSelectedAddress] = useState("");
-  const [metaTxEnabled, setMetaTxEnabled] = useState(true);
-  const [transactionHash, setTransactionHash] = useState("");
+  const [instaExit, setInstaExit] = useState();
+  const [fromChain, setFromChain] = useState(selectedFromChain);
+  const [toChain, setToChain] = useState(selectedToChain)
+  const [tokenAmount, setTokenAmount] = useState(0);
 
   useEffect(() => {
     async function init() {
@@ -52,12 +89,22 @@ function App() {
         window.ethereum.isMetaMask
       ) {
         // Ethereum user detected. You can now use the provider.
-          const provider = window["ethereum"];
-          await provider.enable();
-          ethersProvider = new ethers.providers.Web3Provider(provider);
-          instaExit = new InstaExit(provider, {fromChainId: 5, toChainId: 80001} );
-          signer = ethersProvider.getSigner();
-         
+        const provider = window["ethereum"];
+        await provider.enable();
+        ethersProvider = new ethers.providers.Web3Provider(provider);
+        let instaExit = new InstaExit(provider, {
+          fromChainId: 5,
+          toChainId: 80001,
+          debug: true,
+          infiniteApproval: true,
+          onFundsTransfered : (data) => {
+            console.log("Funds transfer successfull");
+            console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+          }
+        });
+        await instaExit.init();
+        signer = ethersProvider.getSigner();
+        setInstaExit(instaExit);
       } else {
         showErrorMessage("Metamask not installed");
       }
@@ -65,138 +112,110 @@ function App() {
     init();
   }, []);
 
-  const onQuoteChange = event => {
-    setNewQuote(event.target.value);
-  };
+  const onFromChainSelected = (event) => {
+    let selectedNetwork = config.chainIdMap[event.target.value]
+    setFromChain(selectedNetwork);
+    dispatch(updateSelectedFromChain(selectedNetwork));
 
-  const generateTxId = async (event) => {
-    let data = {
-        sender : "0xF86B30C63E068dBB6bdDEa6fe76bf92F194Dc53c",
-        tokenAddress : "0x455025322EfA1f7648eB9683B68b54c88265B95B",
-        amount : "1000000000000000000", 
-        fromChainId : "5", 
-        toChainId : "80001" 
+    if(instaExit && selectedNetwork.chainId) {
+      let tokenList = instaExit.getSupportedTokens(selectedNetwork.chainId);
+      if(tokenList) {
+        console.log("dispatching updateSupportedTokens")
+        dispatch(updateSupportedTokensAndSelectedToken(tokenList));
+
+      } else {
+        showErrorMessage(`Unable to get supported token list for network id ${selectedNetwork.chainId} `)
+      }
     }
-
-    // let idStatus = await instaExit.generateTxId(data, signer, "PERSONAL_SIGN");
-    let idStatus = await instaExit.generateTxId(data, signer, "EIP712_SIGN");
-    console.log(idStatus);
   }
 
-  // const onSubmitWithEIP712Sign = async event => {
-  //   if (newQuote != "" && contract) {
-  //     setTransactionHash("");
-  //     if (metaTxEnabled) {
-  //       let userAddress = selectedAddress;
-  //       let nonce = await contract.getNonce(userAddress);
-  //       let functionSignature = contractInterface.encodeFunctionData("setQuote", [newQuote]);
-  //       let message = {};
-  //       message.nonce = parseInt(nonce);
-  //       message.from = userAddress;
-  //       message.functionSignature = functionSignature;
+  const onToChainSelected = (event) => {
+    let selectedNetwork = config.chainIdMap[event.target.value]
+    setToChain(selectedNetwork);
+    dispatch(updateSelectedToChain(selectedNetwork));
+  }
 
-  //       const dataToSign = JSON.stringify({
-  //         types: {
-  //           EIP712Domain: domainType,
-  //           MetaTransaction: metaTransactionType
-  //         },
-  //         domain: domainData,
-  //         primaryType: "MetaTransaction",
-  //         message: message
-  //       });
-  //       let signature = await ethersProvider.send("eth_signTypedData_v4", [userAddress, dataToSign])
-  //       let { r, s, v } = getSignatureParameters(signature);
-  //       sendSignedTransaction(userAddress, functionSignature, r, s, v, EIP712_SIGN);
-  //     } else {
-  //       console.log("Sending normal transaction");
-  //       let tx = await contract.setQuote(newQuote);
-  //       console.log("Transaction hash : ", tx.hash);
-  //       showInfoMessage(`Transaction sent by relayer with hash ${tx.hash}`);
-  //       let confirmation = await tx.wait();
-  //       console.log(confirmation);
-  //       setTransactionHash(tx.hash);
+  const handleTokenAmount = (event) => {
+    let amount = event.target.value;
+    if(amount !== undefined && amount.toString) {
+      setTokenAmount(amount.toString());
+      dispatch(updateTokenAmount(amount));      
+    } else {
+      showErrorMessage("Please enter valid amount");
+    }
+  }
 
-  //       showSuccessMessage("Transaction confirmed on chain");
-  //       getQuoteFromNetwork();
-  //     }
-  //   } else {
-  //     showErrorMessage("Please enter the quote");
-  //   }
-  // };
+  const onTransfer = async () => {
+    showInfoMessage("Initiaiting Transfer ...");
+    let amount = BigNumber.from(selectedTokenAmount);
+    let fromChainId = selectedFromChain.chainId;
+    let toChainId = selectedToChain.chainId;
 
-  // const onSubmitWithPersonalSign = async event => {
-  //   if (newQuote != "" && contractWithBasicSign && signer) {
-  //     setTransactionHash("");
-  //     if (metaTxEnabled) {
-  //       let userAddress = selectedAddress;
-  //       let nonce = await contractWithBasicSign.getNonce(userAddress);
-  //       let functionSignature = contractInterface.encodeFunctionData("setQuote", [newQuote]);
-  //       let messageToSign = abi.soliditySHA3(
-  //           ["uint256","address","uint256","bytes"],
-  //           [parseInt(nonce), config.contractWithBasicSign.address, chainId, toBuffer(functionSignature)]
-  //       );
-  //       const signature = await signer.signMessage(messageToSign);
-  //       let { r, s, v } = getSignatureParameters(signature);
-  //       sendSignedTransaction(userAddress, functionSignature, r, s, v, PERSONAL_SIGN);
-  //     } else {
-  //       console.log("Sending normal transaction");
-  //       let tx = await contractWithBasicSign.setQuote(newQuote);
-  //       console.log("Transaction hash : ", tx.hash);
-  //       showInfoMessage(`Transaction sent by relayer with hash ${tx.hash}`);
-  //       let confirmation = await tx.wait();
-  //       console.log(confirmation);
-  //       setTransactionHash(tx.hash);
+    let tokenDecimals = await instaExit.getERC20TokenDecimals(selectedToken.address);
 
-  //       showSuccessMessage("Transaction confirmed on chain");
-  //       getQuoteFromNetwork();
-  //     }
-  //   } else {
-  //     showErrorMessage("Please enter the quote or check contract and signer object");
-  //   }
-  // };
+    amount = amount.mul(BigNumber.from(10).pow(tokenDecimals));
+    
+    console.log("Total amount to  be transfered: ", amount.toString())
 
-  // const getSignatureParameters = signature => {
-  //   if (!ethers.utils.isHexString(signature)) {
-  //     throw new Error(
-  //       'Given value "'.concat(signature, '" is not a valid hex string.')
-  //     );
-  //   }
-  //   var r = signature.slice(0, 66);
-  //   var s = "0x".concat(signature.slice(66, 130));
-  //   var v = "0x".concat(signature.slice(130, 132));
-  //   v = ethers.BigNumber.from(v).toNumber();
-  //   if (![27, 28].includes(v)) v += 27;
-  //   return {
-  //     r: r,
-  //     s: s,
-  //     v: v
-  //   };
-  // };
+    showInfoMessage("Checking available liquidity ...");
+    let transferStatus = await instaExit.preDepositStatus({
+      tokenAddress: selectedToken.address,
+      amount: amount.toString(),
+      fromChainId,
+      toChainId
+    });
 
-  // const getQuoteFromNetwork = async (signType) => {
-  //   if (contract) {
-  //     let result;
-  //     if(signType == PERSONAL_SIGN) {
-  //       result = await contractWithBasicSign.getQuote();
-  //     } else {
-  //       result = await contract.getQuote();
-  //     }
-  //     if (
-  //       result &&
-  //       result.currentQuote != undefined &&
-  //       result.currentOwner != undefined
-  //     ) {
-  //       if (result.currentQuote == "") {
-  //         showErrorMessage("No quotes set on blockchain yet");
-  //       } else {
-  //         setQuote(result.currentQuote);
-  //         setOwner(result.currentOwner);
-  //       }
-  //     } else {
-  //       showErrorMessage("Not able to get quote information from Network");
-  //     }
-  //   }
-  // };
+    if (transferStatus) {
+      if (transferStatus.code === RESPONSE_CODES.OK) {
+        console.log("All good. Proceed with deposit");
+        console.log(transferStatus);
+        try {
+          showInfoMessage("Checking approvals ...");
+          deposit({
+            sender: await signer.getAddress(),
+            receiver: await signer.getAddress(),
+            tokenAddress: selectedToken.address,
+            depositContractAddress: transferStatus.depositContract,
+            amount: amount.toString(),
+            fromChainId: fromChainId,
+            toChainId: toChainId,
+          });
+
+        } catch(error) {
+          if(error && error.code == RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
+            showInfoMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
+            let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
+            showInfoMessage(`Waiting for transaction confirmation ...`);
+            await approveTx.wait(1);
+            showSuccessMessage("Approval transaction confirmed.");
+            showInfoMessage("Initiating deposit transaction ...");
+            deposit({
+              sender: await signer.getAddress(),
+              receiver: await signer.getAddress(),
+              tokenAddress: selectedToken.address,
+              depositContractAddress: transferStatus.depositContract,
+              amount: amount.toString(),
+              fromChainId: fromChainId,
+              toChainId: toChainId,
+            });
+
+          }
+        }
+        
+      } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_NETWORK) {
+        showErrorMessage("Target chain id is not supported yet");
+      } else if (transferStatus.code === RESPONSE_CODES.NO_LIQUIDITY) {
+        showErrorMessage(`No liquidity available for ${selectedTokenAmount} tokens`);
+      } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_TOKEN) {
+        showErrorMessage("Requested token is not supported yet");
+      }
+    }
+  }
+
+  const deposit = async (depositRequest) => {
+    let depositResponse = await instaExit.deposit(depositRequest);
+    console.log(depositResponse);
+  }
 
   const showErrorMessage = message => {
     NotificationManager.error(message, "Error", 5000);
@@ -210,77 +229,61 @@ function App() {
     NotificationManager.info(message, "Info", 3000);
   };
 
-  // const sendSignedTransaction = async (userAddress, functionData, r, s, v, signType) => {
-  //   if (contract) {
-  //     try {
-  //       let tx;
-  //       if(signType == PERSONAL_SIGN) {
-  //         tx = await contractWithBasicSign.executeMetaTransaction(userAddress, functionData, r, s, v);
-  //       } else {
-  //         tx = await contract.executeMetaTransaction(userAddress, functionData, r, s, v);
-  //       }
-  //       console.log("Transaction hash : ", tx.hash);
-  //       showInfoMessage(`Transaction sent by relayer with hash ${tx.hash}`);
-  //       let confirmation = await tx.wait();
-  //       console.log(confirmation);
-  //       setTransactionHash(tx.hash);
-
-  //       showSuccessMessage("Transaction confirmed on chain");
-  //       getQuoteFromNetwork(signType);
-
-  //     } catch (error) {
-  //       console.log(error);
-  //     }
-  //   }
-  // };
-
   return (
     <div className="App">
-      <section className="main">
-        <div className="mb-wrap mb-style-2">
-          <blockquote cite="http://www.gutenberg.org/ebboks/11">
-            <p>{quote}</p>
-          </blockquote>
-        </div>
+      <section className={classes.mainContainer}>
+        <Card className={classes.root} variant="outlined">
+          <CardContent>
+            <div className={classes.cardRow}>
+              <FormControl variant="outlined" size="small" className={classes.formControl}>
+                {/* <InputLabel id="select-from-chain-label">Select From Chain</InputLabel> */}
+                <Select
+                  labelId="select-from-chain-label"
+                  id="from-chain-select"
+                  value={fromChain.chainId}
+                  onChange={onFromChainSelected}
+                >
+                  {fromChainList && fromChainList.map((chain, index) =>
+                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`}>{chain.name}</MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+              <ArrowForwardIcon />
+              <FormControl variant="outlined" size="small" className={classes.formControl}>
+                {/* <InputLabel id="select-to-chain-label">Select To Chain</InputLabel> */}
+                <Select
+                  labelId="select-to-chain-label"
+                  id="to-chain-select"
+                  value={toChain.chainId}
+                  onChange={onToChainSelected}
+                >
+                  {toChainList && toChainList.map((chain, index) =>
+                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`}>{chain.name}</MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+            </div>
+            <div className={classes.cardRow}>
 
-        <div className="mb-attribution">
-          <p className="mb-author">{owner}</p>
-          {selectedAddress.toLowerCase() === owner.toLowerCase() && (
-            <cite className="owner">You are the owner of the quote</cite>
-          )}
-          {selectedAddress.toLowerCase() !== owner.toLowerCase() && (
-            <cite>You are not the owner of the quote</cite>
-          )}
-        </div>
-      </section>
-      <section>
-        {transactionHash !== "" && <Box className={classes.root} mt={2} p={2}>
-          <Typography>
-            Check your transaction hash
-            <Link href={`https://kovan.etherscan.io/tx/${transactionHash}`} target="_blank"
-            className={classes.link}>
-              here
-            </Link>
-          </Typography>
-        </Box>}
-      </section>
-      <section>
-        <div className="submit-container">
-          <div className="submit-row">
-            <input
-              type="text"
-              placeholder="Enter your quote"
-              onChange={onQuoteChange}
-              value={newQuote}
-            />
-            <Button variant="contained" color="primary" onClick={generateTxId}>
-              Generate id
-            </Button>
-            {/* <Button variant="contained" color="primary" onClick={onSubmitWithPersonalSign} style={{marginLeft: "10px"}}>
-              Submit (Persoanl Sign)
-            </Button> */}
-          </div>
-        </div>
+            </div>
+            <div className={classes.cardRow}>
+              {/* <FormControl variant="outlined" size="small" className={classes.formControl}> */}
+                <TextField id="token-amount" size="small" label="Amount" 
+                  variant="outlined" className={classes.formControl} type="number"
+                  value={tokenAmount}
+                  style={{ flexGrow: 1 }} onChange={handleTokenAmount}/>
+                <TokenListContainer instaExit={instaExit} 
+                  toChainId={selectedToChain.chainId} fromChainId={selectedFromChain.chainId} />
+              {/* </FormControl> */}
+            </div>
+
+            <div className={classes.cardRow}>
+              <FormControl variant="standard" size="small" className={classes.formControl}>
+                <Button onClick={onTransfer} variant="contained" color="secondary">Transfer</Button>
+              </FormControl>
+            </div>
+          </CardContent>
+        </Card>
       </section>
       <NotificationContainer />
     </div>
