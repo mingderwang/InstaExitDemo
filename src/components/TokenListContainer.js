@@ -9,6 +9,17 @@ import { useSelector, useDispatch } from 'react-redux'
 import { updateSupportedTokens, updateSelectedToken } from '../redux'
 import { useState } from 'react';
 
+
+let USDCLogo = require("../assets/usdc.png");
+let USDTLogo = require("../assets/usdt.png");
+let DAILogo = require("../assets/dai.png");
+
+let tokenLogoMap = {
+  "USDC": USDCLogo,
+  "USDT": USDTLogo,
+  "DAI": DAILogo
+}
+
 const useStyles = makeStyles((theme) => ({
     formControl: {
         margin: theme.spacing(1),
@@ -17,6 +28,10 @@ const useStyles = makeStyles((theme) => ({
     selectEmpty: {
         marginTop: theme.spacing(2),
     },
+    tokenLogo: {
+        height: "20px",
+        marginRight: "5px"
+    }
 }));
 
 function TokenListContainer(props) {
@@ -39,12 +54,14 @@ function TokenListContainer(props) {
     useEffect(() => {
         console.log(props.instaExit);
         if (instaExit) {
+            console.log(props.fromChainId);
             let tokenList = instaExit.getSupportedTokens(props.fromChainId);
+            console.log(tokenList);
             dispatch(updateSupportedTokens(tokenList));
         }
     }, [props.instaExit]);
 
-
+    
 
     const handleChange = (event) => {
         if(tokenMap) {
@@ -55,7 +72,7 @@ function TokenListContainer(props) {
         }
     };
 
-    console.log(selectedToken);
+    console.log(tokenList);
     return (
         <div>
             <FormControl size="small" variant="outlined" className={classes.formControl}>
@@ -67,7 +84,10 @@ function TokenListContainer(props) {
                     onChange={handleChange}
                 >
                     {tokenList && tokenList.map((token, index) => 
-                        <MenuItem value={token.tokenSymbol} key={`${token.tokenSymbol}${index}`}>{token.tokenSymbol}</MenuItem>
+                        <MenuItem value={token.tokenSymbol} key={`${token.tokenSymbol}${index}`}>
+                            <img src={tokenLogoMap[token.tokenSymbol]} className={classes.tokenLogo}/>
+                            {token.tokenSymbol}
+                        </MenuItem>
                     )}
                 </Select>
             </FormControl>

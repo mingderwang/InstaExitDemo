@@ -12,6 +12,10 @@ import Select from '@material-ui/core/Select';
 import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import TextField from '@material-ui/core/TextField';
 import { useSelector, useDispatch } from 'react-redux'
+import ProgressDialog from './components/ProgressDialog';
+import InfoIcon from '@material-ui/icons/Info';
+import SuccessIcon from '@material-ui/icons/CheckCircle';
+import ErrorIcon from '@material-ui/icons/Error';
 
 import {
   NotificationContainer,
@@ -23,24 +27,81 @@ import { BigNumber, ethers } from "ethers";
 import { InstaExit, SignatureType, RESPONSE_CODES } from "@biconomy/inex";
 import { makeStyles } from '@material-ui/core/styles';
 import TokenListContainer from "./components/TokenListContainer";
-import {config} from "./config";
-import { 
-  updateSelectedFromChain, 
-  updateSelectedToChain, 
+import { config } from "./config";
+import {
+  updateSelectedFromChain,
+  updateSelectedToChain,
   updateTokenAmount,
   updateSupportedTokens,
-  updateSupportedTokensAndSelectedToken } from "./redux";
+  updateSelectedTokenBalance,
+  updateSupportedTokensAndSelectedToken
+} from "./redux";
+import Faucet from "./components/Faucet";
+
+let MaticLogo = require("./assets/Matic.png");
+let EthereumLogo = require("./assets/Ethereum.png");
 
 let ethersProvider, signer;
 let contract, contractInterface, contractWithBasicSign;
+
+let chainLogoMap = {
+  80001: MaticLogo,
+  5: EthereumLogo,
+  137: MaticLogo,
+  1: EthereumLogo
+}
+
+let explorerURLMap = {
+  80001: "https://explorer-mumbai.maticvigil.com/tx/",
+  137: "https://explorer-mainnet.maticvigil.com/tx/",
+  5: "https://goerli.etherscan.io/tx/",
+  1: "https://etherscan.io/tx/"
+}
 
 const useStyles = makeStyles((theme) => ({
   root: {
     minWidth: 275,
   },
+  
   formControl: {
     margin: theme.spacing(1),
     minWidth: 150,
+  },
+  estimationsContainer: {
+    background: "#555",
+    color: "white",
+    display: "flex",
+    flexDirection: "column",
+    width: "92%",
+    padding: "10px",
+    margin: '8px',
+    borderRadius: "2px",
+    marginLeft: "auto",
+    marginRight: "auto",
+  },
+  estimationRow: {
+    display: "flex",
+    flexDirection: "row",
+    marginTop: "4px",
+    justifyContent: "space-between",
+    fontWeight: "300"
+  },
+  balanceRow: {
+    textAlign: "right",
+    paddingTop: "20px",
+    paddingLeft: "20px",
+    paddingRight: "20px",
+  },
+  formControlFullWidth: {
+    margin: theme.spacing(1),
+    minWidth: 150,
+    width: "100%"
+  },
+  exitHashLink: {
+    textDecoration: "none",
+    cursor: "pointer",
+    color: "#3f51b5",
+    marginLeft: "5px"
   },
   cardRow: {
     display: "flex",
@@ -48,6 +109,42 @@ const useStyles = makeStyles((theme) => ({
     padding: "10px",
     justifyContent: "space-between",
     alignItems: "center"
+  },
+  feedbackIcon: {
+    marginRight: "10px"
+  },
+  feedbackInfoIcon: {
+    color: "#3f51b5"
+  },
+  feedbackSuccessIcon: {
+    color: "#4caf50"
+  },
+  feedbackErrorIcon: {
+    color: "#f44336"
+  },
+  feedbackMessage: {
+    textAlign: "center",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  selectBox: {
+    display: "flex!important",
+    color: "red"
+  },
+  heading: {
+    fontSize: "40px",
+    marginBottom: "10px",
+  },
+  chainLogo: {
+    height: "20px",
+    marginRight: "5px"
+  },
+  selectLabel: {
+    textAlign: "left",
+    paddingBottom: "5px",
+    paddingLeft: "5px"
   },
   title: {
     fontSize: 14,
@@ -57,10 +154,8 @@ const useStyles = makeStyles((theme) => ({
   },
   mainContainer: {
     width: "500px",
-    marginLeft: "auto",
-    marginRight: "auto",
     position: "relative",
-    top: "100px"
+    marginTop: "100px"
   }
 }));
 
@@ -72,15 +167,26 @@ function App() {
   const dispatch = useDispatch();
 
   const selectedToken = useSelector(state => state.tokens.selectedToken);
+  const selectedTokenBalance = useSelector(state => state.tokens.selectedTokenBalance);
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
   const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
+  const tokenMap = useSelector(state => state.tokens.tokenMap);
 
   const preventDefault = (event) => event.preventDefault();
+  const [userAddress, setUserAddress] = useState();
   const [instaExit, setInstaExit] = useState();
   const [fromChain, setFromChain] = useState(selectedFromChain);
   const [toChain, setToChain] = useState(selectedToChain)
   const [tokenAmount, setTokenAmount] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [openProgressDialog, setOpenProgressDialog] = useState(false);
+  const [feedbackTitle, setFeedbackTitle] = useState("Status");
+  const [feedbackIcon, setFeedbackIcon] = useState();
+  const [lpFee, setLpFee] = useState(".3");
+  const [showEstimation, setShowEstimation] = useState(false);
+  const [walletChainId, setWalletChainId] = useState();
+  const [faucetBalance, setFaucetBalance] = useState({});
 
   useEffect(() => {
     async function init() {
@@ -92,18 +198,38 @@ function App() {
         const provider = window["ethereum"];
         await provider.enable();
         ethersProvider = new ethers.providers.Web3Provider(provider);
+
+        let network = await ethersProvider.getNetwork();
+        setWalletChainId(network.chainId);
+
         let instaExit = new InstaExit(provider, {
           fromChainId: 5,
           toChainId: 80001,
           debug: true,
           infiniteApproval: true,
-          onFundsTransfered : (data) => {
+          onFundsTransfered: (data) => {
             console.log("Funds transfer successfull");
             console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+            showFeedbackMessage(<div>
+              Cross chain transfer successfull !!
+                <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+            </div>, "success");
           }
         });
         await instaExit.init();
         signer = ethersProvider.getSigner();
+        let userAddress = await signer.getAddress();
+        if (userAddress) {
+          setUserAddress(userAddress);
+        }
+        try {
+          ethersProvider.on("block", (blockNumber) => {
+            updateFaucetBalance();
+          });
+        } catch (error) {
+          console.log(error);
+        }
+        updateFaucetBalance();
         setInstaExit(instaExit);
       } else {
         showErrorMessage("Metamask not installed");
@@ -112,17 +238,114 @@ function App() {
     init();
   }, []);
 
+  useEffect(() => {
+
+    console.log("Selected token chane", selectedToken)
+    if (selectedToken !== undefined && signer && ethersProvider) {
+      dispatch(updateSelectedTokenBalance(undefined));
+      checkNetwork().then(async status => {
+        if (status) {
+          if (userAddress) {
+            console.log("network is same");
+            let tokenAddress = selectedToken.address;
+            let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
+            let userBalance = await tokenContract.balanceOf(userAddress);
+            let decimals = await tokenContract.decimals();
+            let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
+            if (balance != undefined) balance = balance.toFixed(2);
+
+            dispatch(updateSelectedTokenBalance(balance));
+          } else {
+            showErrorMessage("User address is not initialized");
+          }
+        }
+      })
+    }
+  }, [selectedToken])
+
+  const updateFaucetBalance = async () => {
+    let faucetBalance = {};
+    let faucetChains = [selectedFromChain.chainId, selectedToChain.chainId];
+
+    if (faucetChains) {
+      for (let index = 0; index < faucetChains.length; index++) {
+        let faucetPerChain = {};
+        let chainId = faucetChains[index];
+        let faucet = config.faucet[chainId];
+        if (config.tokensMap) {
+          let tokensArray = Object.keys(config.tokensMap);
+          let rpcUrl = config.chainIdMap[chainId].rpcUrl;
+          let ethersProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+          for (let subIndex = 0; subIndex < tokensArray.length; subIndex++) {
+            let tokenSymbol = tokensArray[subIndex];
+            let tokenAddress = config.tokensMap[tokenSymbol][chainId].address;
+            let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, ethersProvider);
+            let balance = await tokenContract.balanceOf(faucet.address);
+            let decimals = await tokenContract.decimals();
+            balance = balance.toString() / BigNumber.from(10).pow(decimals).toString();
+            if (balance != undefined) balance = balance.toFixed(2);
+            faucetPerChain[tokenAddress] = balance;
+          }
+        }
+        faucetBalance[chainId] = faucetPerChain;
+      }
+    }
+    console.log(faucetBalance);
+    setFaucetBalance(faucetBalance);
+  }
+
+  const checkNetwork = async () => {
+    let status = true;
+    if (signer && ethersProvider) {
+      let currentNetwork = await ethersProvider.getNetwork();
+      if (currentNetwork.chainId != selectedFromChain.chainId) {
+        status = false;
+        showErrorMessage(`Please switch your wallet to ${selectedFromChain.name} network`);
+      }
+    } else {
+      status = false;
+      showErrorMessage(`Make sure your wallet in unlocked`);
+    }
+    return status;
+  }
+
+  const handleCloseFeedback = () => {
+    setOpenProgressDialog(false);
+  }
+
+  const getExplorerURL = (hash, chainId) => {
+    return `${explorerURLMap[chainId]}${hash}`;
+  }
+
   const onFromChainSelected = (event) => {
     let selectedNetwork = config.chainIdMap[event.target.value]
+    let currentToChain = selectedToChain;
+
     setFromChain(selectedNetwork);
     dispatch(updateSelectedFromChain(selectedNetwork));
 
-    if(instaExit && selectedNetwork.chainId) {
+
+    if (currentToChain.chainId === selectedNetwork.chainId) {
+      let supportedChainsArray = Object.keys(config.chains);
+      let nextChain;
+      for (let index = 0; index < supportedChainsArray.length; index++) {
+        nextChain = config.chains[supportedChainsArray[index]];
+        if (nextChain && nextChain.chainId !== undefined && nextChain.chainId != currentToChain.chainId) {
+          break;
+        }
+      }
+      if (nextChain && nextChain.chainId != undefined) {
+        setToChain(nextChain);
+        dispatch(updateSelectedToChain(nextChain));
+      }
+    }
+
+    if (instaExit && selectedNetwork.chainId) {
       let tokenList = instaExit.getSupportedTokens(selectedNetwork.chainId);
-      if(tokenList) {
+      if (tokenList) {
         console.log("dispatching updateSupportedTokens")
         dispatch(updateSupportedTokensAndSelectedToken(tokenList));
-
       } else {
         showErrorMessage(`Unable to get supported token list for network id ${selectedNetwork.chainId} `)
       }
@@ -131,65 +354,71 @@ function App() {
 
   const onToChainSelected = (event) => {
     let selectedNetwork = config.chainIdMap[event.target.value]
-    setToChain(selectedNetwork);
-    dispatch(updateSelectedToChain(selectedNetwork));
+
+    let currentFromChain = selectedFromChain;
+    if (currentFromChain.chainId === selectedNetwork.chainId) {
+      showInfoMessage(`From and To chain can't be same. Please change the from chain`);
+    } else {
+      setToChain(selectedNetwork);
+      dispatch(updateSelectedToChain(selectedNetwork));
+    }
   }
 
   const handleTokenAmount = (event) => {
     let amount = event.target.value;
-    if(amount !== undefined && amount.toString) {
+    if (amount !== undefined && amount.toString) {
+      if (amount != "") {
+        if (BigNumber.from(amount).gt(0)) {
+          setShowEstimation(true);
+        } else {
+          setShowEstimation(false);
+        }
+      }
+
       setTokenAmount(amount.toString());
-      dispatch(updateTokenAmount(amount));      
+      dispatch(updateTokenAmount(amount));
     } else {
       showErrorMessage("Please enter valid amount");
     }
   }
 
   const onTransfer = async () => {
-    showInfoMessage("Initiaiting Transfer ...");
-    let amount = BigNumber.from(selectedTokenAmount);
-    let fromChainId = selectedFromChain.chainId;
-    let toChainId = selectedToChain.chainId;
+    try {
+      let networkCheck = await checkNetwork();
+      if (!networkCheck) {
+        return;
+      }
+      let amount = BigNumber.from(selectedTokenAmount);
 
-    let tokenDecimals = await instaExit.getERC20TokenDecimals(selectedToken.address);
+      if (amount == 0) {
+        showErrorMessage("Please enter non zero value")
+        return;
+      }
+      let fromChainId = selectedFromChain.chainId;
+      let toChainId = selectedToChain.chainId;
 
-    amount = amount.mul(BigNumber.from(10).pow(tokenDecimals));
-    
-    console.log("Total amount to  be transfered: ", amount.toString())
+      showFeedbackMessage("Initiaiting Transfer");
+      let tokenDecimals = await instaExit.getERC20TokenDecimals(selectedToken.address);
 
-    showInfoMessage("Checking available liquidity ...");
-    let transferStatus = await instaExit.preDepositStatus({
-      tokenAddress: selectedToken.address,
-      amount: amount.toString(),
-      fromChainId,
-      toChainId
-    });
+      amount = amount.mul(BigNumber.from(10).pow(tokenDecimals));
 
-    if (transferStatus) {
-      if (transferStatus.code === RESPONSE_CODES.OK) {
-        console.log("All good. Proceed with deposit");
-        console.log(transferStatus);
-        try {
-          showInfoMessage("Checking approvals ...");
-          deposit({
-            sender: await signer.getAddress(),
-            receiver: await signer.getAddress(),
-            tokenAddress: selectedToken.address,
-            depositContractAddress: transferStatus.depositContract,
-            amount: amount.toString(),
-            fromChainId: fromChainId,
-            toChainId: toChainId,
-          });
+      console.log("Total amount to  be transfered: ", amount.toString())
 
-        } catch(error) {
-          if(error && error.code == RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
-            showInfoMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
-            let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
-            showInfoMessage(`Waiting for transaction confirmation ...`);
-            await approveTx.wait(1);
-            showSuccessMessage("Approval transaction confirmed.");
-            showInfoMessage("Initiating deposit transaction ...");
-            deposit({
+      showFeedbackMessage("Checking available liquidity");
+      let transferStatus = await instaExit.preDepositStatus({
+        tokenAddress: selectedToken.address,
+        amount: amount.toString(),
+        fromChainId,
+        toChainId
+      });
+
+      if (transferStatus) {
+        if (transferStatus.code === RESPONSE_CODES.OK) {
+          console.log("All good. Proceed with deposit");
+          console.log(transferStatus);
+          try {
+            showFeedbackMessage("Checking approvals and initiating deposit transaction");
+            let depositTx = await deposit({
               sender: await signer.getAddress(),
               receiver: await signer.getAddress(),
               tokenAddress: selectedToken.address,
@@ -199,22 +428,52 @@ function App() {
               toChainId: toChainId,
             });
 
+            showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
+            console.log(depositTx);
+            await depositTx.wait(1);
+            showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+          } catch (error) {
+            console.log(error);
+            if (error && error.code == RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
+              showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
+              let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
+              showFeedbackMessage(`Waiting for transaction confirmation`);
+              await approveTx.wait(2);
+              showSuccessMessage("Approval transaction confirmed");
+              showFeedbackMessage("Initiating deposit transaction");
+              await deposit({
+                sender: await signer.getAddress(),
+                receiver: await signer.getAddress(),
+                tokenAddress: selectedToken.address,
+                depositContractAddress: transferStatus.depositContract,
+                amount: amount.toString(),
+                fromChainId: fromChainId,
+                toChainId: toChainId,
+              });
+              showFeedbackMessage("Waiting for exit transaction ...");
+            }
           }
+
+        } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_NETWORK) {
+          showErrorMessage("Target chain id is not supported yet");
+        } else if (transferStatus.code === RESPONSE_CODES.NO_LIQUIDITY) {
+          showErrorMessage(`No liquidity available for ${selectedTokenAmount} tokens`);
+        } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_TOKEN) {
+          showErrorMessage("Requested token is not supported yet");
         }
-        
-      } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_NETWORK) {
-        showErrorMessage("Target chain id is not supported yet");
-      } else if (transferStatus.code === RESPONSE_CODES.NO_LIQUIDITY) {
-        showErrorMessage(`No liquidity available for ${selectedTokenAmount} tokens`);
-      } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_TOKEN) {
-        showErrorMessage("Requested token is not supported yet");
+      }
+    } catch (error) {
+      if (error && error.message) {
+        showErrorMessage(error.message);
+      } else {
+        showErrorMessage(`Make sure your wallet is on ${selectedFromChain.name} network`)
       }
     }
   }
 
   const deposit = async (depositRequest) => {
     let depositResponse = await instaExit.deposit(depositRequest);
-    console.log(depositResponse);
+    return depositResponse;
   }
 
   const showErrorMessage = message => {
@@ -229,28 +488,96 @@ function App() {
     NotificationManager.info(message, "Info", 3000);
   };
 
+  const showFeedbackMessage = (message, type) => {
+    // setOpenProgressDialog(true);
+    setFeedbackMessage(message);
+    if (type === 'success') {
+      setFeedbackIcon(<SuccessIcon className={`${classes.feedbackSuccessIcon} ${classes.feedbackIcon}`} />);
+    } else if (type === 'error') {
+      setFeedbackIcon(<ErrorIcon className={`${classes.feedbackErrorIcon} ${classes.feedbackIcon}`} />);
+    } else {
+      setFeedbackIcon(<InfoIcon className={`${classes.feedbackInfoIcon} ${classes.feedbackIcon}`} />);
+    }
+    // showInfoMessage(message);
+  }
+
+  const getTokensFromFaucet = async (symbol, chainId) => {
+    try {
+      let chainName = config.chainIdMap[chainId].name;
+      if (walletChainId !== chainId) {
+        return showErrorMessage(`Switch your network to ${chainName} in your wallet`);
+      }
+
+      let faucetInfo = config.faucet[chainId];
+      console.log(faucetInfo);
+      let contract = new ethers.Contract(faucetInfo.address, faucetInfo.abi, signer);
+      let token = config.tokensMap[symbol][chainId];
+
+      if (token && token.address) {
+        let tx = await contract.getTokens(token.address);
+        let receipt = await tx.wait(1);
+        if (receipt && receipt.status == 1) {
+          showSuccessMessage("Faucet transaction successful");
+        } else {
+          showErrorMessage("Faucet Transaction failed");
+        }
+      } else {
+        showErrorMessage(`${symbol} is not supported on ${chainName}`);
+      }
+    } catch (error) {
+      console.log(error);
+      showErrorMessage("Error while getting tokens from faucet");
+    }
+  }
+
   return (
     <div className="App">
+      
+      <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
+        chainLogoMap={chainLogoMap}
+        selectedChain={selectedFromChain}
+        faucetBalance={faucetBalance}
+        getTokensFromFaucet={getTokensFromFaucet}
+        chainId={selectedFromChain.chainId}
+        tokenSymbolList={Object.keys(config.tokensMap)}
+      />
+
       <section className={classes.mainContainer}>
+
+        <div className={classes.heading}>
+          Insta Exit
+        </div>
         <Card className={classes.root} variant="outlined">
           <CardContent>
             <div className={classes.cardRow}>
+              <div id="feedback-div" className={classes.feedbackMessage}>
+                {feedbackIcon}{feedbackMessage}
+              </div>
+            </div>
+            <div className={classes.cardRow}>
+
               <FormControl variant="outlined" size="small" className={classes.formControl}>
                 {/* <InputLabel id="select-from-chain-label">Select From Chain</InputLabel> */}
+                <span className={classes.selectLabel}>From</span>
                 <Select
                   labelId="select-from-chain-label"
                   id="from-chain-select"
                   value={fromChain.chainId}
                   onChange={onFromChainSelected}
+                  style={{ display: "flex!important" }}
                 >
                   {fromChainList && fromChainList.map((chain, index) =>
-                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`}>{chain.name}</MenuItem>
+                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`} >
+                      <img src={chainLogoMap[chain.chainId]} className={classes.chainLogo} />
+                      {chain.name}
+                    </MenuItem>
                   )}
                 </Select>
               </FormControl>
               <ArrowForwardIcon />
               <FormControl variant="outlined" size="small" className={classes.formControl}>
                 {/* <InputLabel id="select-to-chain-label">Select To Chain</InputLabel> */}
+                <span className={classes.selectLabel}>To</span>
                 <Select
                   labelId="select-to-chain-label"
                   id="to-chain-select"
@@ -258,33 +585,73 @@ function App() {
                   onChange={onToChainSelected}
                 >
                   {toChainList && toChainList.map((chain, index) =>
-                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`}>{chain.name}</MenuItem>
+                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`} className={classes.menuItem}>
+                      <img src={chainLogoMap[chain.chainId]} className={classes.chainLogo} />
+                      {chain.name}
+                    </MenuItem>
                   )}
                 </Select>
               </FormControl>
             </div>
-            <div className={classes.cardRow}>
 
+            {/* <div className={`${classes.cardRow}`}> */}
+            <div className={classes.balanceRow}>
+              {selectedTokenBalance != undefined &&
+                <span>Balance: {selectedTokenBalance}</span>
+              }
+              {selectedTokenBalance == undefined &&
+                <span>-</span>
+              }
             </div>
+            {/* </div> */}
             <div className={classes.cardRow}>
               {/* <FormControl variant="outlined" size="small" className={classes.formControl}> */}
-                <TextField id="token-amount" size="small" label="Amount" 
-                  variant="outlined" className={classes.formControl} type="number"
-                  value={tokenAmount}
-                  style={{ flexGrow: 1 }} onChange={handleTokenAmount}/>
-                <TokenListContainer instaExit={instaExit} 
-                  toChainId={selectedToChain.chainId} fromChainId={selectedFromChain.chainId} />
+              <TextField id="token-amount" size="small" label="Amount"
+                variant="outlined" className={classes.formControl} type="number"
+                value={tokenAmount}
+                style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
+              <TokenListContainer instaExit={instaExit}
+                toChainId={selectedToChain.chainId} fromChainId={selectedFromChain.chainId} />
               {/* </FormControl> */}
             </div>
-
+            {showEstimation &&
+              <div className={classes.cardRow}>
+                <div className={classes.estimationsContainer}>
+                  {/* <div style={{fontWeight: "500"}}>
+                    Estimations
+                  </div> */}
+                  <div className={classes.estimationRow}>
+                    <span>Liquidity Provider Fee</span>
+                    <span>{lpFee}%</span>
+                  </div>
+                  <div className={classes.estimationRow}>
+                    <span>Other Fees</span>
+                    <span>Network fee</span>
+                  </div>
+                </div>
+              </div>
+            }
             <div className={classes.cardRow}>
-              <FormControl variant="standard" size="small" className={classes.formControl}>
-                <Button onClick={onTransfer} variant="contained" color="secondary">Transfer</Button>
+              <FormControl variant="standard" size="medium" className={classes.formControlFullWidth}>
+                <Button onClick={onTransfer} size="large" variant="contained" color="secondary">Transfer</Button>
               </FormControl>
             </div>
+
           </CardContent>
         </Card>
       </section>
+
+      <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
+        chainLogoMap={chainLogoMap}
+        selectedChain={selectedToChain}
+        faucetBalance={faucetBalance}
+        getTokensFromFaucet={getTokensFromFaucet}
+        chainId={selectedToChain.chainId}
+        tokenSymbolList={Object.keys(config.tokensMap)}
+      />
+
+      <ProgressDialog open={openProgressDialog}
+        feedbackMessage={feedbackMessage} feedbackTitle={feedbackTitle} handleClose={handleCloseFeedback} />
       <NotificationContainer />
     </div>
   );

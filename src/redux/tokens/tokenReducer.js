@@ -1,7 +1,8 @@
 import {
   UPDATE_SUPPORTED_TOKENS,
   SET_SELECTED_TOKEN,
-  SET_TOKEN_AMOUNT
+  SET_TOKEN_AMOUNT,
+  SET_SELECTED_TOKEN_BALANCE
 } from './tokenTypes'
 
 const defaultTokenSymbol = 'USDC';
@@ -12,6 +13,7 @@ const initialState = {
   selectedToken: {
     tokenSymbol: defaultTokenSymbol
   },
+  selectedTokenBalance: undefined,
   tokenAmount: 0
 }
 
@@ -47,6 +49,11 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         tokenAmount: action.payload.amount
+      }
+    case SET_SELECTED_TOKEN_BALANCE:
+      return {
+        ...state,
+        selectedTokenBalance: action.payload.balance
       }
     default: return state
   }

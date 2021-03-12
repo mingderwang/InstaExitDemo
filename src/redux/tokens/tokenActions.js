@@ -1,4 +1,5 @@
-import { UPDATE_SUPPORTED_TOKENS, SET_SELECTED_TOKEN, SET_TOKEN_AMOUNT } from './tokenTypes'
+import { UPDATE_SUPPORTED_TOKENS, SET_SELECTED_TOKEN, 
+  SET_TOKEN_AMOUNT, SET_SELECTED_TOKEN_BALANCE } from './tokenTypes'
 
 export const updateSupportedTokens = (tokenList) => {
   return {
@@ -32,6 +33,14 @@ export const updateSelectedToken = (token) => {
   }
 }
 
+export const updateSelectedTokenBalance = (balance) => {
+  return {
+    type: SET_SELECTED_TOKEN_BALANCE,
+    payload: {
+      balance: balance
+    }
+  }
+}
 
 
 export const updateTokenAmount = (amount) => {
