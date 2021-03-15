@@ -245,13 +245,13 @@ function App() {
           }
         });
 
-        try {
-          ethersProvider.on("block", (blockNumber) => {
-            updateFaucetBalance();
-          });
-        } catch (error) {
-          console.log(error);
-        }
+        // try {
+        //   ethersProvider.on("block", (blockNumber) => {
+        //      updateFaucetBalance();
+        //   });
+        // } catch (error) {
+        //   console.log(error);
+        // }
         updateFaucetBalance();
         setInstaExit(instaExit);
 
