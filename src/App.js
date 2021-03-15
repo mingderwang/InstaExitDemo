@@ -34,7 +34,9 @@ import {
   updateTokenAmount,
   updateSupportedTokens,
   updateSelectedTokenBalance,
-  updateSupportedTokensAndSelectedToken
+  updateSupportedTokensAndSelectedToken,
+  updateMinDeposit,
+  updateMaxDeposit
 } from "./redux";
 import Faucet from "./components/Faucet";
 
@@ -146,6 +148,10 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: "5px",
     paddingLeft: "5px"
   },
+  tokenInputAmountContainer: {
+    display: "flex",
+    flexDirection: "column"
+  },
   title: {
     fontSize: 14,
   },
@@ -171,6 +177,8 @@ function App() {
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
   const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
+  const minDepositAmount = useSelector(state => state.tokens.minDeposit);
+  const maxDepositAmount = useSelector(state => state.tokens.maxDeposit);
   const tokenMap = useSelector(state => state.tokens.tokenMap);
 
   const preventDefault = (event) => event.preventDefault();
@@ -240,7 +248,7 @@ function App() {
 
   useEffect(() => {
 
-    console.log("Selected token chane", selectedToken)
+    console.log("Selected token changed", selectedToken)
     if (selectedToken !== undefined && signer && ethersProvider) {
       dispatch(updateSelectedTokenBalance(undefined));
       checkNetwork().then(async status => {
@@ -255,6 +263,15 @@ function App() {
             if (balance != undefined) balance = balance.toFixed(2);
 
             dispatch(updateSelectedTokenBalance(balance));
+            if(instaExit) {
+              let poolInfo = await instaExit.getPoolInformation(tokenAddress, selectedFromChain.chainId, selectedToChain.chainId);
+              if(poolInfo && poolInfo.minDepositAmount && poolInfo.maxDepositAmount) {
+                dispatch(updateMinDeposit(poolInfo.minDepositAmount));
+                dispatch(updateMaxDeposit(poolInfo.maxDepositAmount));
+              }
+              console.log(poolInfo);
+            }
+            
           } else {
             showErrorMessage("User address is not initialized");
           }
@@ -437,11 +454,11 @@ function App() {
             if (error && error.code == RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
               showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
               let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
-              showFeedbackMessage(`Waiting for transaction confirmation`);
+              showFeedbackMessage(`Waiting for approval confirmation`);
               await approveTx.wait(2);
               showSuccessMessage("Approval transaction confirmed");
               showFeedbackMessage("Initiating deposit transaction");
-              await deposit({
+              let depositTx = await deposit({
                 sender: await signer.getAddress(),
                 receiver: await signer.getAddress(),
                 tokenAddress: selectedToken.address,
@@ -450,7 +467,11 @@ function App() {
                 fromChainId: fromChainId,
                 toChainId: toChainId,
               });
-              showFeedbackMessage("Waiting for exit transaction ...");
+
+              showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
+              console.log(depositTx);
+              await depositTx.wait(1);
+              showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
             }
           }
 
@@ -604,12 +625,20 @@ function App() {
               }
             </div>
             {/* </div> */}
-            <div className={classes.cardRow}>
+            <div className={classes.cardRow} style={{alignItems: "inherit"}}>
               {/* <FormControl variant="outlined" size="small" className={classes.formControl}> */}
-              <TextField id="token-amount" size="small" label="Amount"
-                variant="outlined" className={classes.formControl} type="number"
-                value={tokenAmount}
-                style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
+              <div style={{ flexGrow: 1 }} className={classes.tokenInputAmountContainer}>
+                <TextField id="token-amount" size="small" label="Amount"
+                  variant="outlined" className={classes.formControl} type="number"
+                  value={tokenAmount}
+                  style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
+                {minDepositAmount !== undefined && maxDepositAmount !== undefined && 
+                  <div className="min-max-container">
+                    <span>Min: {minDepositAmount}</span>
+                    <span>Max: {maxDepositAmount}</span>
+                  </div>
+                }
+              </div>
               <TokenListContainer instaExit={instaExit}
                 toChainId={selectedToChain.chainId} fromChainId={selectedFromChain.chainId} />
               {/* </FormControl> */}

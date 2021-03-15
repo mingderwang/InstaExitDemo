@@ -2,7 +2,8 @@ import {
   UPDATE_SUPPORTED_TOKENS,
   SET_SELECTED_TOKEN,
   SET_TOKEN_AMOUNT,
-  SET_SELECTED_TOKEN_BALANCE
+  SET_SELECTED_TOKEN_BALANCE,
+  SET_MIN_DEPOSIT, SET_MAX_DEPOSIT
 } from './tokenTypes'
 
 const defaultTokenSymbol = 'USDC';
@@ -13,6 +14,8 @@ const initialState = {
   selectedToken: {
     tokenSymbol: defaultTokenSymbol
   },
+  minDeposit: undefined,
+  maxDeposit: undefined,
   selectedTokenBalance: undefined,
   tokenAmount: 0
 }
@@ -54,6 +57,16 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         selectedTokenBalance: action.payload.balance
+      }
+    case SET_MIN_DEPOSIT:
+      return {
+        ...state,
+        minDeposit: action.payload.minDepositAmount
+      }
+    case SET_MAX_DEPOSIT:
+      return {
+        ...state,
+        maxDeposit: action.payload.maxDepositAmount
       }
     default: return state
   }

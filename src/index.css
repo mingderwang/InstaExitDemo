@@ -154,3 +154,11 @@ cite.owner {
 cite:hover {
   color : #D48158;
 }
+
+
+.min-max-container {
+  display: flex;
+  padding: 0px 10px;
+  justify-content: space-between;
+  font-size: 12px;
+}

@@ -1,5 +1,25 @@
 import { UPDATE_SUPPORTED_TOKENS, SET_SELECTED_TOKEN, 
-  SET_TOKEN_AMOUNT, SET_SELECTED_TOKEN_BALANCE } from './tokenTypes'
+  SET_TOKEN_AMOUNT, SET_SELECTED_TOKEN_BALANCE,
+  SET_MIN_DEPOSIT, SET_MAX_DEPOSIT } from './tokenTypes'
+
+export const updateMinDeposit = (minDepositAmount) => {
+  return {
+    type: SET_MIN_DEPOSIT,
+    payload: {
+      minDepositAmount: minDepositAmount
+    }
+  }
+}
+
+export const updateMaxDeposit = (maxDepositAmount) => {
+  return {
+    type: SET_MAX_DEPOSIT,
+    payload: {
+      maxDepositAmount: maxDepositAmount
+    }
+  }
+}
+
 
 export const updateSupportedTokens = (tokenList) => {
   return {
