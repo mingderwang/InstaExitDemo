@@ -273,7 +273,12 @@ function App() {
         showErrorMessage("Metamask not installed");
       }
     }
-    init();
+    try {
+      init();
+    } catch(error) {
+      console.log(error);
+      showErrorMessage("Error while initiazing the App");
+    }
   }, []);
 
   useEffect(() => {
