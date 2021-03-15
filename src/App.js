@@ -205,7 +205,7 @@ function App() {
         // Ethereum user detected. You can now use the provider.
         const provider = window["ethereum"];
         await provider.enable();
-        ethersProvider = new ethers.providers.Web3Provider(provider);
+        ethersProvider = new ethers.providers.Web3Provider(provider, "any");
 
         let network = await ethersProvider.getNetwork();
         setWalletChainId(network.chainId);
@@ -224,12 +224,27 @@ function App() {
             </div>, "success");
           }
         });
+
         await instaExit.init();
+        
+        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
+          onFromChainSelected({target: {value: network.chainId}});
+
         signer = ethersProvider.getSigner();
         let userAddress = await signer.getAddress();
         if (userAddress) {
           setUserAddress(userAddress);
         }
+
+        ethersProvider.on("network", (newNetwork, oldNetwork) => {
+          // When a Provider makes its initial connection, it emits a "network"
+          // event with a null oldNetwork along with the newNetwork. So, if the
+          // oldNetwork exists, it represents a changing network
+          if (oldNetwork) {
+              window.location.reload();
+          }
+        });
+
         try {
           ethersProvider.on("block", (blockNumber) => {
             updateFaucetBalance();
@@ -239,6 +254,21 @@ function App() {
         }
         updateFaucetBalance();
         setInstaExit(instaExit);
+
+        // Hanlde user address change
+        if(provider.on) {          
+          provider.on('accountsChanged', function (accounts) {
+            console.log(`Address changed EVENT`);
+            console.log(`New account info`, accounts);
+
+            if(accounts && accounts.length > 0) {
+              let newUserAddress = accounts[0];
+              if (newUserAddress) {
+                setUserAddress(newUserAddress);
+              }
+            }
+          })
+        }
       } else {
         showErrorMessage("Metamask not installed");
       }
@@ -247,13 +277,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-
     console.log("Selected token changed", selectedToken)
-    if (selectedToken !== undefined && signer && ethersProvider) {
+    if (selectedToken !== undefined && selectedToken.address && signer && ethersProvider && userAddress) {
       dispatch(updateSelectedTokenBalance(undefined));
+      dispatch(updateMinDeposit(undefined));
+      dispatch(updateMaxDeposit(undefined));
+
       checkNetwork().then(async status => {
         if (status) {
           if (userAddress) {
+            console.log(`User address is ${userAddress}`)
             console.log("network is same");
             let tokenAddress = selectedToken.address;
             let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
@@ -278,7 +311,7 @@ function App() {
         }
       })
     }
-  }, [selectedToken])
+  }, [selectedToken, userAddress])
 
   const updateFaucetBalance = async () => {
     let faucetBalance = {};
