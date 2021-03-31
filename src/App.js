@@ -16,12 +16,12 @@ import ProgressDialog from './components/ProgressDialog';
 import InfoIcon from '@material-ui/icons/Info';
 import SuccessIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
+import styled from 'styled-components';
 
-import {
-  NotificationContainer,
-  NotificationManager
-} from "react-notifications";
-import "react-notifications/lib/notifications.css";
+import ReactNotification from 'react-notifications-component';
+import 'react-notifications-component/dist/theme.css';
+import { store } from 'react-notifications-component';
+
 import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
 import { InstaExit, SignatureType, RESPONSE_CODES } from "@biconomy/inex";
@@ -36,12 +36,23 @@ import {
   updateSelectedTokenBalance,
   updateSupportedTokensAndSelectedToken,
   updateMinDeposit,
-  updateMaxDeposit
+  updateMaxDeposit,
+  updateSwitchNetworkText,
+  toggleSwitchNetworkDisplay
+
 } from "./redux";
 import Faucet from "./components/Faucet";
+import Header from "./components/Header";
 
 let MaticLogo = require("./assets/Matic.png");
 let EthereumLogo = require("./assets/Ethereum.png");
+
+
+let AppWrapper = styled.div`
+  display: flex;
+  width: 100%;
+  flex-direction: column
+`
 
 let ethersProvider, signer;
 let contract, contractInterface, contractWithBasicSign;
@@ -64,7 +75,11 @@ const useStyles = makeStyles((theme) => ({
   root: {
     minWidth: 275,
   },
-  
+  arrowBetweenNetworks: {
+    marginBottom: "16px",
+    alignSelf: "flex-end",
+    cursor: "pointer"
+  },
   formControl: {
     margin: theme.spacing(1),
     minWidth: 150,
@@ -161,7 +176,7 @@ const useStyles = makeStyles((theme) => ({
   mainContainer: {
     width: "500px",
     position: "relative",
-    marginTop: "100px"
+    marginTop: "80px"
   }
 }));
 
@@ -176,6 +191,9 @@ function App() {
   const selectedTokenBalance = useSelector(state => state.tokens.selectedTokenBalance);
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
+  const switchNetworkText = useSelector(state => state.network.switchNetworkText);
+  const showSwitchNetworkButton = useSelector(state => state.network.showSwitchNetworkButton);
+
   const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
   const minDepositAmount = useSelector(state => state.tokens.minDeposit);
   const maxDepositAmount = useSelector(state => state.tokens.maxDeposit);
@@ -356,7 +374,10 @@ function App() {
       let currentNetwork = await ethersProvider.getNetwork();
       if (currentNetwork.chainId != selectedFromChain.chainId) {
         status = false;
+        checkAndShowSwitchNetworkButton(selectedFromChain);
         showErrorMessage(`Please switch your wallet to ${selectedFromChain.name} network`);
+      } else {
+        dispatch(toggleSwitchNetworkDisplay(false));
       }
     } else {
       status = false;
@@ -365,8 +386,51 @@ function App() {
     return status;
   }
 
+  const checkAndShowSwitchNetworkButton = (selectedChain) => {
+    if(selectedChain) {
+      let isSwitchingSupported = config.changeRPCPayload[selectedChain.chainId];
+      if(isSwitchingSupported) {
+        dispatch(updateSwitchNetworkText(`Switch to ${selectedChain.name}`));
+        dispatch(toggleSwitchNetworkDisplay(true));
+      } else {
+        dispatch(toggleSwitchNetworkDisplay(false));
+        console.log(`Switching to ${selectedChain.name} is not supported by Metamask. So not showing the Switch Network button`);
+      }
+    } else {
+      console.error(`selectedChain param is not defined`);
+    }
+  }
+
   const handleCloseFeedback = () => {
     setOpenProgressDialog(false);
+  }
+
+  const onClickSwitchNetwork = async (chainId) => {
+    if(config) {
+      let payload = config.changeRPCPayload[chainId];
+      if(payload) {
+        let ethereum = window.ethereum;
+        if(ethereum && ethereum.isMetaMask) {
+          const data = [payload]
+          /* eslint-disable */
+          const tx = await ethereum.request({method: 'wallet_addEthereumChain', params:data}).catch(error => {
+            console.log(error);
+          })
+          if (tx) {
+              console.log(tx)
+          }
+        } else {
+          console.error(`Metamask is not installed`);
+          showErrorMessage(`Metamask is not installed`);  
+        }
+      } else {
+        console.error(`Payload info is not configured in config for chainId ${chainId}`);
+        showErrorMessage(`Switch network for chainId ${chainId} is not configured in the App`);  
+      }
+    } else {
+      console.error("config is not defined");
+      showErrorMessage("App is not properly initialised");
+    }
   }
 
   const getExplorerURL = (hash, chainId) => {
@@ -380,7 +444,7 @@ function App() {
     setFromChain(selectedNetwork);
     dispatch(updateSelectedFromChain(selectedNetwork));
 
-
+    // If selected 'from' chain and current 'to' chain are same
     if (currentToChain.chainId === selectedNetwork.chainId) {
       let supportedChainsArray = Object.keys(config.chains);
       let nextChain;
@@ -536,15 +600,54 @@ function App() {
   }
 
   const showErrorMessage = message => {
-    NotificationManager.error(message, "Error", 5000);
+    // https://www.npmjs.com/package/react-notifications-component
+    if(store) {
+      store.addNotification({
+          title: "Error",
+          message: message,
+          type: "danger",
+          container: "bottom-right",
+          dismiss: {
+            duration: 3000,
+            onScreen: true,
+            pauseOnHover: true
+          }
+      });
+    }
   };
 
   const showSuccessMessage = message => {
-    NotificationManager.success(message, "Message", 3000);
+    // https://www.npmjs.com/package/react-notifications-component
+    if(store) {
+      store.addNotification({
+          title: "Message",
+          message: message,
+          type: "success",
+          container: "bottom-right",
+          dismiss: {
+            duration: 3000,
+            onScreen: true,
+            pauseOnHover: true
+          }
+      });
+    }
   };
 
   const showInfoMessage = message => {
-    NotificationManager.info(message, "Info", 3000);
+    // https://www.npmjs.com/package/react-notifications-component
+    if(store) {
+      store.addNotification({
+          title: "Message",
+          message: message,
+          type: "info",
+          container: "bottom-right",
+          dismiss: {
+            duration: 3000,
+            onScreen: true,
+            pauseOnHover: true
+          }
+      });
+    }
   };
 
   const showFeedbackMessage = (message, type) => {
@@ -590,8 +693,12 @@ function App() {
   }
 
   return (
-    <div className="App">
-      
+    <AppWrapper>
+      <ReactNotification />
+      <Header switchButtonText={switchNetworkText} showSwitchNetworkButton={showSwitchNetworkButton}
+        onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}/>
+
+      <div className="App">
       <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
         chainLogoMap={chainLogoMap}
         selectedChain={selectedFromChain}
@@ -604,7 +711,7 @@ function App() {
       <section className={classes.mainContainer}>
 
         <div className={classes.heading}>
-          Insta Exit
+          
         </div>
         <Card className={classes.root} variant="outlined">
           <CardContent>
@@ -633,7 +740,7 @@ function App() {
                   )}
                 </Select>
               </FormControl>
-              <ArrowForwardIcon />
+              <ArrowForwardIcon className={classes.arrowBetweenNetworks}/>
               <FormControl variant="outlined" size="small" className={classes.formControl}>
                 {/* <InputLabel id="select-to-chain-label">Select To Chain</InputLabel> */}
                 <span className={classes.selectLabel}>To</span>
@@ -719,8 +826,8 @@ function App() {
 
       <ProgressDialog open={openProgressDialog}
         feedbackMessage={feedbackMessage} feedbackTitle={feedbackTitle} handleClose={handleCloseFeedback} />
-      <NotificationContainer />
     </div>
+    </AppWrapper>
   );
 }
 

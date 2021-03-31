@@ -53,4 +53,18 @@ config.tokensMap = {
         }
     }
 }
+
+config.changeRPCPayload = {
+    80001: {
+        chainId: '0x13881',
+        chainName: 'Mumbai',
+        nativeCurrency: {
+            name: 'Matic',
+            symbol: 'MATIC',
+            decimals: 18
+        },
+        rpcUrls: [chains.MUMBAI.rpcUrl],
+        blockExplorerUrls: ['https://explorer-mumbai.maticvigil.com/'],
+    }
+}
 module.exports = { config }
