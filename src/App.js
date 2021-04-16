@@ -24,7 +24,7 @@ import { store } from 'react-notifications-component';
 
 import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
-import { InstaExit, SignatureType, RESPONSE_CODES } from "@biconomy/inex";
+import { InstaExit, RESPONSE_CODES } from "@biconomy/inex";
 import { makeStyles } from '@material-ui/core/styles';
 import TokenListContainer from "./components/TokenListContainer";
 import { config } from "./config";
@@ -189,6 +189,7 @@ function App() {
 
   const selectedToken = useSelector(state => state.tokens.selectedToken);
   const selectedTokenBalance = useSelector(state => state.tokens.selectedTokenBalance);
+  const selectedTokenRawBalance = useSelector(state => state.tokens.selectedTokenRawBalance);
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
   const switchNetworkText = useSelector(state => state.network.switchNetworkText);
@@ -229,9 +230,8 @@ function App() {
         setWalletChainId(network.chainId);
 
         let instaExit = new InstaExit(provider, {
-          fromChainId: 5,
-          toChainId: 80001,
           debug: true,
+          environment: "test",
           infiniteApproval: true,
           onFundsTransfered: (data) => {
             console.log("Funds transfer successfull");
@@ -302,7 +302,7 @@ function App() {
   useEffect(() => {
     console.log("Selected token changed", selectedToken)
     if (selectedToken !== undefined && selectedToken.address && signer && ethersProvider && userAddress) {
-      dispatch(updateSelectedTokenBalance(undefined));
+      dispatch(updateSelectedTokenBalance(undefined, undefined));
       dispatch(updateMinDeposit(undefined));
       dispatch(updateMaxDeposit(undefined));
 
@@ -318,7 +318,7 @@ function App() {
             let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
             if (balance != undefined) balance = balance.toFixed(2);
 
-            dispatch(updateSelectedTokenBalance(balance));
+            dispatch(updateSelectedTokenBalance(balance, userBalance.toString()));
             if(instaExit) {
               let poolInfo = await instaExit.getPoolInformation(tokenAddress, selectedFromChain.chainId, selectedToChain.chainId);
               if(poolInfo && poolInfo.minDepositAmount && poolInfo.maxDepositAmount) {
@@ -501,6 +501,16 @@ function App() {
     }
   }
 
+  const checkUserBalance = async (amount) => {
+    let balanceCheck = false;
+    if(selectedTokenBalance && amount) {
+      if(parseFloat(selectedTokenBalance) >= parseFloat(amount.toString())) {
+        balanceCheck = true;
+      }
+    }
+    return balanceCheck;
+  }
+
   const onTransfer = async () => {
     try {
       let networkCheck = await checkNetwork();
@@ -508,6 +518,15 @@ function App() {
         return;
       }
       let amount = BigNumber.from(selectedTokenAmount);
+
+      let userBalanceOk = await checkUserBalance(amount);
+      if(!userBalanceOk) {
+        let errorMessage = `Not enough balance to transfer ${amount} ${selectedToken.tokenSymbol}`;
+        setFeedbackIcon(<ErrorIcon />);
+        setFeedbackMessage(errorMessage);
+        showErrorMessage(errorMessage);
+        return;
+      }
 
       if (amount == 0) {
         showErrorMessage("Please enter non zero value")
@@ -528,7 +547,8 @@ function App() {
         tokenAddress: selectedToken.address,
         amount: amount.toString(),
         fromChainId,
-        toChainId
+        toChainId,
+        userAddress: await signer.getAddress()
       });
 
       if (transferStatus) {
@@ -553,36 +573,38 @@ function App() {
             showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
           } catch (error) {
             console.log(error);
-            if (error && error.code == RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
-              showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
-              let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
-              showFeedbackMessage(`Waiting for approval confirmation`);
-              await approveTx.wait(2);
-              showSuccessMessage("Approval transaction confirmed");
-              showFeedbackMessage("Initiating deposit transaction");
-              let depositTx = await deposit({
-                sender: await signer.getAddress(),
-                receiver: await signer.getAddress(),
-                tokenAddress: selectedToken.address,
-                depositContractAddress: transferStatus.depositContract,
-                amount: amount.toString(),
-                fromChainId: fromChainId,
-                toChainId: toChainId,
-              });
-
-              showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
-              console.log(depositTx);
-              await depositTx.wait(1);
-              showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
-            }
+            showErrorMessage("Error while depositing funds");
           }
+        } else if(transferStatus.code === RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
+            showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
+            showInfoMessage(`Please confirm Approval transaction in your wallet`);
+            let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
+            showFeedbackMessage(`Waiting for approval confirmation`);
+            await approveTx.wait(2);
+            showSuccessMessage("Approval transaction confirmed");
+            showFeedbackMessage("Initiating deposit transaction");
+            let depositTx = await deposit({
+              sender: await signer.getAddress(),
+              receiver: await signer.getAddress(),
+              tokenAddress: selectedToken.address,
+              depositContractAddress: transferStatus.depositContract,
+              amount: amount.toString(),
+              fromChainId: fromChainId,
+              toChainId: toChainId,
+            });
 
+            showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
+            console.log(depositTx);
+            await depositTx.wait(1);
+            showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
         } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_NETWORK) {
           showErrorMessage("Target chain id is not supported yet");
         } else if (transferStatus.code === RESPONSE_CODES.NO_LIQUIDITY) {
           showErrorMessage(`No liquidity available for ${selectedTokenAmount} tokens`);
         } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_TOKEN) {
           showErrorMessage("Requested token is not supported yet");
+        } else {
+          showErrorMessage(`Error while doing preDeposit check ${transferStatus.message}`)
         }
       }
     } catch (error) {
