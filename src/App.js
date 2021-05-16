@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef } from "react";
+import useState from 'react-usestateref'
 import "./App.css";
 import Card from '@material-ui/core/Card';
 import CardActions from '@material-ui/core/CardActions';
@@ -24,7 +25,7 @@ import { store } from 'react-notifications-component';
 
 import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
-import { InstaExit, RESPONSE_CODES } from "@biconomy/inex";
+import { Hyphen, RESPONSE_CODES } from "@biconomy/hyphen";
 import { makeStyles } from '@material-ui/core/styles';
 import TokenListContainer from "./components/TokenListContainer";
 import { config } from "./config";
@@ -200,9 +201,11 @@ function App() {
   const maxDepositAmount = useSelector(state => state.tokens.maxDeposit);
   const tokenMap = useSelector(state => state.tokens.tokenMap);
 
+  const selectedTokenRef = useRef(selectedToken);
+
   const preventDefault = (event) => event.preventDefault();
-  const [userAddress, setUserAddress] = useState();
-  const [instaExit, setInstaExit] = useState();
+  const [userAddress, setUserAddress, userAddressRef] = useState();
+  const [hyphen, setHyphen] = useState();
   const [fromChain, setFromChain] = useState(selectedFromChain);
   const [toChain, setToChain] = useState(selectedToChain)
   const [tokenAmount, setTokenAmount] = useState(0);
@@ -229,7 +232,7 @@ function App() {
         let network = await ethersProvider.getNetwork();
         setWalletChainId(network.chainId);
 
-        let instaExit = new InstaExit(provider, {
+        let hyphen = new Hyphen(provider, {
           debug: true,
           environment: "test",
           infiniteApproval: true,
@@ -243,7 +246,7 @@ function App() {
           }
         });
 
-        await instaExit.init();
+        await hyphen.init();
         
         if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
           onFromChainSelected({target: {value: network.chainId}});
@@ -271,7 +274,7 @@ function App() {
         //   console.log(error);
         // }
         updateFaucetBalance();
-        setInstaExit(instaExit);
+        setHyphen(hyphen);
 
         // Hanlde user address change
         if(provider.on) {          
@@ -301,40 +304,45 @@ function App() {
 
   useEffect(() => {
     console.log("Selected token changed", selectedToken)
+    selectedTokenRef.current = selectedToken;
     if (selectedToken !== undefined && selectedToken.address && signer && ethersProvider && userAddress) {
       dispatch(updateSelectedTokenBalance(undefined, undefined));
       dispatch(updateMinDeposit(undefined));
       dispatch(updateMaxDeposit(undefined));
 
-      checkNetwork().then(async status => {
-        if (status) {
-          if (userAddress) {
-            console.log(`User address is ${userAddress}`)
-            console.log("network is same");
-            let tokenAddress = selectedToken.address;
-            let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
-            let userBalance = await tokenContract.balanceOf(userAddress);
-            let decimals = await tokenContract.decimals();
-            let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
-            if (balance != undefined) balance = balance.toFixed(2);
-
-            dispatch(updateSelectedTokenBalance(balance, userBalance.toString()));
-            if(instaExit) {
-              let poolInfo = await instaExit.getPoolInformation(tokenAddress, selectedFromChain.chainId, selectedToChain.chainId);
-              if(poolInfo && poolInfo.minDepositAmount && poolInfo.maxDepositAmount) {
-                dispatch(updateMinDeposit(poolInfo.minDepositAmount));
-                dispatch(updateMaxDeposit(poolInfo.maxDepositAmount));
-              }
-              console.log(poolInfo);
-            }
-            
-          } else {
-            showErrorMessage("User address is not initialized");
-          }
-        }
-      })
+      updateUserBalance(userAddress, selectedToken);
     }
   }, [selectedToken, userAddress])
+
+  const updateUserBalance = async (userAddress, selectedToken) => {
+    checkNetwork().then(async status => {
+      if (status) {
+        if (userAddress) {
+          console.log(`User address is ${userAddress}`)
+          console.log("network is same");
+          let tokenAddress = selectedToken.address;
+          let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
+          let userBalance = await tokenContract.balanceOf(userAddress);
+          let decimals = await tokenContract.decimals();
+          let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
+          if (balance != undefined) balance = balance.toFixed(2);
+
+          dispatch(updateSelectedTokenBalance(balance, userBalance.toString()));
+          if(hyphen) {
+            let poolInfo = await hyphen.getPoolInformation(tokenAddress, selectedFromChain.chainId, selectedToChain.chainId);
+            if(poolInfo && poolInfo.minDepositAmount && poolInfo.maxDepositAmount) {
+              dispatch(updateMinDeposit(poolInfo.minDepositAmount));
+              dispatch(updateMaxDeposit(poolInfo.maxDepositAmount));
+            }
+            console.log(poolInfo);
+          }
+          
+        } else {
+          showErrorMessage("User address is not initialized");
+        }
+      }
+    })
+  }
 
   const updateFaucetBalance = async () => {
     let faucetBalance = {};
@@ -460,8 +468,8 @@ function App() {
       }
     }
 
-    if (instaExit && selectedNetwork.chainId) {
-      let tokenList = instaExit.getSupportedTokens(selectedNetwork.chainId);
+    if (hyphen && selectedNetwork.chainId) {
+      let tokenList = hyphen.getSupportedTokens(selectedNetwork.chainId);
       if (tokenList) {
         console.log("dispatching updateSupportedTokens")
         dispatch(updateSupportedTokensAndSelectedToken(tokenList));
@@ -487,7 +495,7 @@ function App() {
     let amount = event.target.value;
     if (amount !== undefined && amount.toString) {
       if (amount != "") {
-        if (BigNumber.from(amount).gt(0)) {
+        if (parseFloat(amount) > 0) {
           setShowEstimation(true);
         } else {
           setShowEstimation(false);
@@ -517,7 +525,7 @@ function App() {
       if (!networkCheck) {
         return;
       }
-      let amount = BigNumber.from(selectedTokenAmount);
+      let amount = parseFloat(selectedTokenAmount);
 
       let userBalanceOk = await checkUserBalance(amount);
       if(!userBalanceOk) {
@@ -536,14 +544,14 @@ function App() {
       let toChainId = selectedToChain.chainId;
 
       showFeedbackMessage("Initiaiting Transfer");
-      let tokenDecimals = await instaExit.getERC20TokenDecimals(selectedToken.address);
+      let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
 
-      amount = amount.mul(BigNumber.from(10).pow(tokenDecimals));
+      amount = amount * Math.pow(10, tokenDecimals);
 
       console.log("Total amount to  be transfered: ", amount.toString())
 
       showFeedbackMessage("Checking available liquidity");
-      let transferStatus = await instaExit.preDepositStatus({
+      let transferStatus = await hyphen.preDepositStatus({
         tokenAddress: selectedToken.address,
         amount: amount.toString(),
         fromChainId,
@@ -571,6 +579,7 @@ function App() {
             console.log(depositTx);
             await depositTx.wait(1);
             showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+            updateUserBalance(userAddress, selectedToken);
           } catch (error) {
             console.log(error);
             showErrorMessage("Error while depositing funds");
@@ -578,7 +587,7 @@ function App() {
         } else if(transferStatus.code === RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
             showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
             showInfoMessage(`Please confirm Approval transaction in your wallet`);
-            let approveTx = await instaExit.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
+            let approveTx = await hyphen.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
             showFeedbackMessage(`Waiting for approval confirmation`);
             await approveTx.wait(2);
             showSuccessMessage("Approval transaction confirmed");
@@ -617,7 +626,7 @@ function App() {
   }
 
   const deposit = async (depositRequest) => {
-    let depositResponse = await instaExit.deposit(depositRequest);
+    let depositResponse = await hyphen.deposit(depositRequest);
     return depositResponse;
   }
 
@@ -685,28 +694,39 @@ function App() {
     // showInfoMessage(message);
   }
 
-  const getTokensFromFaucet = async (symbol, chainId) => {
+  const getTokensFromFaucet = async (symbol, chainId, isNativeCurrency) => {
     try {
       let chainName = config.chainIdMap[chainId].name;
-      if (walletChainId !== chainId) {
-        return showErrorMessage(`Switch your network to ${chainName} in your wallet`);
-      }
-
-      let faucetInfo = config.faucet[chainId];
-      console.log(faucetInfo);
-      let contract = new ethers.Contract(faucetInfo.address, faucetInfo.abi, signer);
-      let token = config.tokensMap[symbol][chainId];
-
-      if (token && token.address) {
-        let tx = await contract.getTokens(token.address);
-        let receipt = await tx.wait(1);
-        if (receipt && receipt.status == 1) {
-          showSuccessMessage("Faucet transaction successful");
-        } else {
-          showErrorMessage("Faucet Transaction failed");
+      if(!isNativeCurrency) {
+        if (walletChainId !== chainId) {
+          return showErrorMessage(`Switch your network to ${chainName} in your wallet`);
         }
+  
+        let faucetInfo = config.faucet[chainId];
+        console.log(faucetInfo);
+        let contract = new ethers.Contract(faucetInfo.address, faucetInfo.abi, signer);
+        let token = config.tokensMap[symbol][chainId];
+  
+        if (token && token.address) {
+          let tx = await contract.getTokens(token.address);
+          let receipt = await tx.wait(1);
+          if (receipt && receipt.status == 1) {
+            showSuccessMessage("Faucet transaction successful");
+            updateUserBalance(userAddress, selectedToken);
+          } else {
+            showErrorMessage("Faucet Transaction failed");
+          }
+        } else {
+          showErrorMessage(`${symbol} is not supported on ${chainName}`);
+        }
+
       } else {
-        showErrorMessage(`${symbol} is not supported on ${chainName}`);
+        let faucetURL = config.chainIdMap[chainId].nativeFaucetURL;
+        if(faucetURL) {
+          window.open(faucetURL, "_blank");
+        } else {
+          showErrorMessage("Faucet URL not found");
+        }
       }
     } catch (error) {
       console.log(error);
@@ -806,7 +826,7 @@ function App() {
                   </div>
                 }
               </div>
-              <TokenListContainer instaExit={instaExit}
+              <TokenListContainer hyphen={hyphen}
                 toChainId={selectedToChain.chainId} fromChainId={selectedFromChain.chainId} />
               {/* </FormControl> */}
             </div>

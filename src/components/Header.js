@@ -2,7 +2,7 @@ import React from 'react'
 import { makeStyles } from '@material-ui/core/styles';
 import styled from 'styled-components'
 import Button from '@material-ui/core/Button';
-
+import Logo from '../assets/Hyphen_icon.png';
 
 const HeaderWrapper = styled.div`
   display: flex;
@@ -39,6 +39,10 @@ const useStyles = makeStyles((theme) => ({
     logoText: {
         fontWeight: "bold",
         fontSize: "28px"
+    },
+    logoIcon: {
+        height: "35px",
+        marginRight: "10px"
     }
 }));
 
@@ -55,7 +59,7 @@ function Header(props) {
     return (
         <HeaderWrapper>
             <IconWrapper className={classes.headerItems, classes.logoText}>
-                Insta Exit
+                <img src={Logo} className={classes.logoIcon}/> Hyphen
             </IconWrapper>
             <RightMenuWrapper className={classes.headerItems}>
                 <SwitchNetworkWrapper >

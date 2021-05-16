@@ -1,8 +1,20 @@
 let config = {};
 
 let chains = {
-    MUMBAI: { name: "Mumbai", chainId: 80001, rpcUrl: "https://rpc-mumbai.matic.today"},
-    GOERLI: { name: "Goerli", chainId: 5, rpcUrl: "https://goerli.infura.io/v3/d126f392798444609246423b06116c77" }
+    MUMBAI: { 
+        name: "Mumbai",
+        chainId: 80001,
+        rpcUrl: "https://rpc-mumbai.matic.today",
+        currency: "Test MATIC",
+        nativeFaucetURL: "https://faucet.matic.network/"
+    },
+    GOERLI: { 
+        name: "Goerli",
+        chainId: 5,
+        rpcUrl: "https://goerli.infura.io/v3/d126f392798444609246423b06116c77",
+        currency: "Goerli ETH",
+        nativeFaucetURL: "https://faucet.goerli.mudit.blog/"
+    }
 }
 
 config.chains = chains;
@@ -51,7 +63,8 @@ config.tokensMap = {
         5: {
             address: "0x2686eca13186766760a0347ee8eeb5a88710e11b"
         }
-    }
+    },
+
 }
 
 config.changeRPCPayload = {

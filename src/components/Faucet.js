@@ -84,14 +84,14 @@ function Faucet(props) {
         for(let index = 0; index<props.tokenSymbolList.length; index++) {
             let tokenSymbol = props.tokenSymbolList[index];
             let balance = props.faucetBalance[props.chainId] ?
-                props.faucetBalance[props.chainId][config.tokensMap[tokenSymbol][props.chainId].address] : "-";
+                props.faucetBalance[props.chainId][config.tokensMap[tokenSymbol][props.chainId].address] : "...";
             rows.push({
                 symbol: tokenSymbol,
                 balance: balance
             });
         }
     }
-    console.log(rows)
+    
     return (
         <section className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`}>
             <div className={classes.chainHeading}>
@@ -114,14 +114,14 @@ function Faucet(props) {
                                     <TableHead>
                                     <TableRow>
                                         <TableCell>Token</TableCell>
-                                        <TableCell align="right">Balance</TableCell>
+                                        <TableCell align="right">Faucet Balance</TableCell>
                                         <TableCell align="right">Action</TableCell>
                                     </TableRow>
                                     </TableHead>
                                     <TableBody>
                                     {rows.map((row) => (
                                         <TableRow key={row.symbol}>
-                                            <TableCell component="th" scope="row">
+                                            <TableCell component="th" scope="row" width="100px">
                                                 {row.symbol}
                                             </TableCell>
                                             <TableCell align="right">{row.balance}</TableCell>
@@ -130,10 +130,19 @@ function Faucet(props) {
                                             </TableCell>
                                         </TableRow>
                                     ))}
+                                    <TableRow key={props.selectedChain.name}>
+                                        <TableCell component="th" scope="row">
+                                            {props.selectedChain.currency}
+                                        </TableCell>
+                                        <TableCell align="right"></TableCell>
+                                        <TableCell align="right">
+                                            <Button variant="contained" onClick={() => { props.getTokensFromFaucet(props.selectedChain.currency, props.chainId, true) }}>Get</Button>
+                                        </TableCell>
+                                    </TableRow>
                                     </TableBody>
                                 </Table>
                                 </TableContainer>
-
+                            
                         </div>
                     </AccordionDetails>
                 </Accordion>

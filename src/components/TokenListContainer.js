@@ -43,7 +43,7 @@ function TokenListContainer(props) {
     const tokenMap = useSelector(state => state.tokens.tokenMap);
     
     const [selectedToken, setSelectedToken] = useState(selectedTokenFormState);
-    const instaExit = props.instaExit;
+    const hyphen = props.hyphen;
 
     useEffect(() => {
         if(selectedTokenFormState) {
@@ -52,14 +52,13 @@ function TokenListContainer(props) {
     },[selectedTokenFormState]);
 
     useEffect(() => {
-        console.log(props.instaExit);
-        if (instaExit) {
+        if (hyphen) {
             console.log(props.fromChainId);
-            let tokenList = instaExit.getSupportedTokens(props.fromChainId);
+            let tokenList = hyphen.getSupportedTokens(props.fromChainId);
             console.log(tokenList);
             dispatch(updateSupportedTokens(tokenList));
         }
-    }, [props.instaExit]);
+    }, [props.hyphen]);
 
     
 
@@ -71,8 +70,6 @@ function TokenListContainer(props) {
             alert("Token Map is not initialised properly");
         }
     };
-
-    console.log(tokenList);
     return (
         <div>
             <FormControl size="small" variant="outlined" className={classes.formControl}>
