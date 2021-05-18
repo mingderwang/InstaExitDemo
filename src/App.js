@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from "react";
-import useState from 'react-usestateref'
+import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 import Card from '@material-ui/core/Card';
 import CardActions from '@material-ui/core/CardActions';
@@ -39,8 +38,8 @@ import {
   updateMinDeposit,
   updateMaxDeposit,
   updateSwitchNetworkText,
-  toggleSwitchNetworkDisplay
-
+  toggleSwitchNetworkDisplay,
+  updateTransactionFee
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
@@ -103,6 +102,13 @@ const useStyles = makeStyles((theme) => ({
     marginTop: "4px",
     justifyContent: "space-between",
     fontWeight: "300"
+  },
+  tokensToGetRow: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    fontWeight: "500",
+    marginTop: "10px"
   },
   balanceRow: {
     textAlign: "right",
@@ -193,6 +199,8 @@ function App() {
   const selectedTokenRawBalance = useSelector(state => state.tokens.selectedTokenRawBalance);
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
+  const transactionFee = useSelector(state => state.transaction.transactionFee);
+  const transactionTokenCurrency = useSelector(state => state.transaction.tokenCurrency);
   const switchNetworkText = useSelector(state => state.network.switchNetworkText);
   const showSwitchNetworkButton = useSelector(state => state.network.showSwitchNetworkButton);
 
@@ -204,16 +212,18 @@ function App() {
   const selectedTokenRef = useRef(selectedToken);
 
   const preventDefault = (event) => event.preventDefault();
-  const [userAddress, setUserAddress, userAddressRef] = useState();
+  const [userAddress, setUserAddress] = useState();
   const [hyphen, setHyphen] = useState();
   const [fromChain, setFromChain] = useState(selectedFromChain);
   const [toChain, setToChain] = useState(selectedToChain)
   const [tokenAmount, setTokenAmount] = useState(0);
+  const [estimatedTokensToGet, setEstimatedTokensToGet] = useState();
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [openProgressDialog, setOpenProgressDialog] = useState(false);
   const [feedbackTitle, setFeedbackTitle] = useState("Status");
   const [feedbackIcon, setFeedbackIcon] = useState();
   const [lpFee, setLpFee] = useState(".3");
+  const [lpFeeAmount, setLpFeeAmount] = useState();
   const [showEstimation, setShowEstimation] = useState(false);
   const [walletChainId, setWalletChainId] = useState();
   const [faucetBalance, setFaucetBalance] = useState({});
@@ -309,8 +319,9 @@ function App() {
       dispatch(updateSelectedTokenBalance(undefined, undefined));
       dispatch(updateMinDeposit(undefined));
       dispatch(updateMaxDeposit(undefined));
-
+      dispatch(updateTransactionFee("...", selectedToken.tokenSymbol));
       updateUserBalance(userAddress, selectedToken);
+      calculateTransactionFee(selectedTokenAmount);
     }
   }, [selectedToken, userAddress])
 
@@ -491,11 +502,13 @@ function App() {
     }
   }
 
-  const handleTokenAmount = (event) => {
+  const handleTokenAmount = async (event) => {
     let amount = event.target.value;
+    setLpFeeAmount();
     if (amount !== undefined && amount.toString) {
       if (amount != "") {
         if (parseFloat(amount) > 0) {
+          await calculateTransactionFee(amount);
           setShowEstimation(true);
         } else {
           setShowEstimation(false);
@@ -506,6 +519,66 @@ function App() {
       dispatch(updateTokenAmount(amount));
     } else {
       showErrorMessage("Please enter valid amount");
+    }
+  }
+
+  const calculateTransactionFee = async (amount) => {
+
+    const fetchOptions = {
+      method: "GET",
+      headers: {
+        'Content-Type': 'application/json;charset=utf-8'
+      }
+    }
+    if(selectedToken && selectedToken.tokenSymbol && selectedToChain && selectedToChain.chainId) {
+      let lpFeeAmount = (parseFloat(lpFee)*parseFloat(amount))/100;
+      if(lpFeeAmount) {
+        lpFeeAmount = lpFeeAmount.toFixed(2);
+        setLpFeeAmount(lpFeeAmount.toString());
+      }
+
+      let selectedTokenConfig = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
+      if(selectedTokenConfig) {
+        let toChainTokenAddress = selectedTokenConfig.address;
+        fetch(`${config.hyphen.baseURL}${config.hyphen.getTokenGasPricePath}?tokenAddress=${toChainTokenAddress}&networkId=${selectedToChain.chainId}`, fetchOptions)
+            .then(response => response.json())
+            .then((response) => {
+                if (response && response.tokenGasPrice != undefined) {
+                    console.log(`Token gas price for ${selectedToken.tokenSymbol} is ${response.tokenGasPrice}`);
+                    let tokenGasPrice = response.tokenGasPrice;
+                    if(tokenGasPrice != undefined && selectedTokenConfig) {
+                      let overhead = selectedTokenConfig.transferOverhead;
+                      let decimal = selectedTokenConfig.decimal;
+                      if(overhead && decimal) {
+                        let transactionFeeRaw = BigNumber.from(overhead).mul(tokenGasPrice);
+                        let transactionFee = parseFloat(transactionFeeRaw)/parseFloat(ethers.BigNumber.from(10).pow(decimal));
+                        if(transactionFee) transactionFee = transactionFee.toFixed(2);
+                        dispatch(updateTransactionFee(transactionFee, selectedToken.tokenSymbol));
+
+                        if(transactionFee != undefined && lpFeeAmount != undefined && amount) {
+                          let amountToGet = parseFloat(amount) - (parseFloat(transactionFee) + parseFloat(lpFeeAmount));
+                          if(amountToGet) {
+                            amountToGet = amountToGet.toFixed(2);
+                            setEstimatedTokensToGet(amountToGet);
+                          }
+                        }
+
+                      } else {
+                        console.error("Error while getting token overhead gas and decimal from config");
+                      }
+                    } else {
+                      console.error("Error while getting selectedTokenConfig and tokenGasPrice from hyphen API");
+                    }
+                } else {
+                    console.error(`Unable to get token gas price for ${selectedToken.tokenSymbol}`);
+                }
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+      }
+    } else {
+      showErrorMessage("Unable to get selected token symbol and network");
     }
   }
 
@@ -547,7 +620,8 @@ function App() {
       let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
 
       amount = amount * Math.pow(10, tokenDecimals);
-
+      amount = amount.toLocaleString('fullwide', {useGrouping:false})
+      
       console.log("Total amount to  be transfered: ", amount.toString())
 
       showFeedbackMessage("Checking available liquidity");
@@ -818,6 +892,7 @@ function App() {
                 <TextField id="token-amount" size="small" label="Amount"
                   variant="outlined" className={classes.formControl} type="number"
                   value={tokenAmount}
+                  InputProps={{ inputProps: { min: 100, max: 1000 } }}
                   style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
                 {minDepositAmount !== undefined && maxDepositAmount !== undefined && 
                   <div className="min-max-container">
@@ -838,12 +913,28 @@ function App() {
                   </div> */}
                   <div className={classes.estimationRow}>
                     <span>Liquidity Provider Fee</span>
-                    <span>{lpFee}%</span>
+                    {lpFeeAmount && 
+                      <span>{lpFeeAmount} {selectedToken.tokenSymbol}</span>
+                    }
+                    { !lpFeeAmount && lpFee &&
+                      <span>{lpFee}%</span>
+                    }
                   </div>
                   <div className={classes.estimationRow}>
-                    <span>Other Fees</span>
-                    <span>Network fee</span>
+                    <span>Transaction Fee</span>
+                    {transactionFee != undefined && transactionTokenCurrency &&
+                      <span>{transactionFee} {transactionTokenCurrency}</span>
+                    }
+                    {transactionFee === undefined && 
+                      <span>Network fee</span>
+                    }
                   </div>
+                  {estimatedTokensToGet && selectedToken && selectedToken.tokenSymbol &&
+                    <div className={classes.estimationRow, classes.tokensToGetRow}>
+                      <span>You get minimum</span>
+                      <span>{estimatedTokensToGet} {selectedToken.tokenSymbol}</span>
+                    </div>
+                  }
                 </div>
               </div>
             }

@@ -42,26 +42,38 @@ config.abi = {
 config.tokensMap = {
     "USDT" : {
         80001: {
-            address: "0xeaBc4b91d9375796AA4F69cC764A4aB509080A58"
+            address: "0xeaBc4b91d9375796AA4F69cC764A4aB509080A58",
+            transferOverhead: 86147,
+            decimal: 18
         },
         5: {
-            address: "0x64ef393b6846114bad71e2cb2ccc3e10736b5716"
+            address: "0x64ef393b6846114bad71e2cb2ccc3e10736b5716",
+            transferOverhead: 102866,
+            decimal: 18
         }
     },
     "USDC" : {
         80001: {
-            address: "0xdA5289fCAAF71d52a80A254da614a192b693e977"
+            address: "0xdA5289fCAAF71d52a80A254da614a192b693e977",
+            transferOverhead: 86099,
+            decimal: 6
         },
         5: {
-            address: "0xb5B640E6414b6DeF4FC9B3C1EeF373925effeCcF"
+            address: "0xb5B640E6414b6DeF4FC9B3C1EeF373925effeCcF",
+            transferOverhead: 97512,
+            decimal: 6
         }
     },
     "DAI" : {
         80001: {
-            address: "0x27a44456bEDb94DbD59D0f0A14fE977c777fC5C3"
+            address: "0x27a44456bEDb94DbD59D0f0A14fE977c777fC5C3",
+            transferOverhead: 86147,
+            decimal: 18
         },
         5: {
-            address: "0x2686eca13186766760a0347ee8eeb5a88710e11b"
+            address: "0x2686eca13186766760a0347ee8eeb5a88710e11b",
+            transferOverhead: 91079,
+            decimal: 18
         }
     },
 
@@ -80,4 +92,10 @@ config.changeRPCPayload = {
         blockExplorerUrls: ['https://explorer-mumbai.maticvigil.com/'],
     }
 }
+
+config.hyphen = {
+    baseURL : "https://hyphen-test-api.biconomy.io",
+    getTokenGasPricePath : "/api/v1/insta-exit/get-token-price"
+}
+
 module.exports = { config }
