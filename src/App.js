@@ -17,6 +17,8 @@ import InfoIcon from '@material-ui/icons/Info';
 import SuccessIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import styled from 'styled-components';
+import BiconomyLogo from './assets/Biconomy-logo.png';
+import Tooltip from '@material-ui/core/Tooltip';
 
 import ReactNotification from 'react-notifications-component';
 import 'react-notifications-component/dist/theme.css';
@@ -25,7 +27,7 @@ import { store } from 'react-notifications-component';
 import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
 import { Hyphen, RESPONSE_CODES } from "@biconomy/hyphen";
-import { makeStyles } from '@material-ui/core/styles';
+import { withStyles, makeStyles } from '@material-ui/core/styles';
 import TokenListContainer from "./components/TokenListContainer";
 import { config } from "./config";
 import {
@@ -44,9 +46,18 @@ import {
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
 
-let MaticLogo = require("./assets/Matic.png");
+let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
 
+const LightTooltip = withStyles((theme) => ({
+  tooltip: {
+    backgroundColor: theme.palette.common.white,
+    color: 'rgba(0, 0, 0, 0.87)',
+    boxShadow: theme.shadows[1],
+    fontSize: 13,
+    maxWidth: 200
+  },
+}))(Tooltip);
 
 let AppWrapper = styled.div`
   display: flex;
@@ -76,7 +87,7 @@ const useStyles = makeStyles((theme) => ({
     minWidth: 275,
   },
   arrowBetweenNetworks: {
-    marginBottom: "16px",
+    marginBottom: "28px",
     alignSelf: "flex-end",
     cursor: "pointer"
   },
@@ -184,6 +195,39 @@ const useStyles = makeStyles((theme) => ({
     width: "500px",
     position: "relative",
     marginTop: "80px"
+  },
+  centerCardHeader: {
+    display: "flex",
+    fontSize: "12px",
+    padding: "10px",
+    fontFamily: "Helvetica Neue",
+    fontWeight: "bold",
+    color: "#212121",
+    justifyContent: "center",
+    alignItems: "bottom"
+  },
+  poweredByText: {
+    display: "flex",
+    flexDirection: "column-reverse",
+    paddingBottom: "7px"
+  },
+  poweredByLogo: {
+    height: "40px",
+    marginLeft: "10px"
+  },
+  transactionFeeLabels: {
+    display: "flex",
+    alignItems: "center"
+  },
+  feeInfoIcon: {
+    height: "17px"
+  },
+  chainSubText: {
+    fontSize: "13px",
+    display: "flex",
+    textAlign: "left",
+    paddingLeft: "10px",
+    marginTop: "-4px"
   }
 }));
 
@@ -826,8 +870,8 @@ function App() {
 
       <section className={classes.mainContainer}>
 
-        <div className={classes.heading}>
-          
+        <div className={classes.centerCardHeader}>
+          <div className={classes.poweredByText}>Powered By</div> <img src={BiconomyLogo} href="https://biconomy.io" className={classes.poweredByLogo} />
         </div>
         <Card className={classes.root} variant="outlined">
           <CardContent>
@@ -838,42 +882,51 @@ function App() {
             </div>
             <div className={classes.cardRow}>
 
-              <FormControl variant="outlined" size="small" className={classes.formControl}>
-                {/* <InputLabel id="select-from-chain-label">Select From Chain</InputLabel> */}
-                <span className={classes.selectLabel}>From</span>
-                <Select
-                  labelId="select-from-chain-label"
-                  id="from-chain-select"
-                  value={fromChain.chainId}
-                  onChange={onFromChainSelected}
-                  style={{ display: "flex!important" }}
-                >
-                  {fromChainList && fromChainList.map((chain, index) =>
-                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`} >
-                      <img src={chainLogoMap[chain.chainId]} className={classes.chainLogo} />
-                      {chain.name}
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
+              <div className={classes.selectContainer}>
+                <FormControl variant="outlined" size="small" className={classes.formControl}>
+                  {/* <InputLabel id="select-from-chain-label">Select From Chain</InputLabel> */}
+                  <span className={classes.selectLabel}>From</span>
+                  <Select
+                    labelId="select-from-chain-label"
+                    id="from-chain-select"
+                    value={fromChain.chainId}
+                    onChange={onFromChainSelected}
+                    style={{ display: "flex!important" }}
+                  >
+                    {fromChainList && fromChainList.map((chain, index) =>
+                      <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`} >
+                        <img src={chainLogoMap[chain.chainId]} className={classes.chainLogo} />
+                        {chain.name}
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <div className={classes.chainSubText}>{fromChain.subText}</div>
+              </div>
+
+
               <ArrowForwardIcon className={classes.arrowBetweenNetworks}/>
-              <FormControl variant="outlined" size="small" className={classes.formControl}>
-                {/* <InputLabel id="select-to-chain-label">Select To Chain</InputLabel> */}
-                <span className={classes.selectLabel}>To</span>
-                <Select
-                  labelId="select-to-chain-label"
-                  id="to-chain-select"
-                  value={toChain.chainId}
-                  onChange={onToChainSelected}
-                >
-                  {toChainList && toChainList.map((chain, index) =>
-                    <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`} className={classes.menuItem}>
-                      <img src={chainLogoMap[chain.chainId]} className={classes.chainLogo} />
-                      {chain.name}
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
+
+              <div className={classes.selectContainer}>
+                <FormControl variant="outlined" size="small" className={classes.formControl}>
+                  {/* <InputLabel id="select-to-chain-label">Select To Chain</InputLabel> */}
+                  <span className={classes.selectLabel}>To</span>
+                  <Select
+                    labelId="select-to-chain-label"
+                    id="to-chain-select"
+                    value={toChain.chainId}
+                    onChange={onToChainSelected}
+                  >
+                    {toChainList && toChainList.map((chain, index) =>
+                      <MenuItem value={chain.chainId} key={`${chain.chainId}${index}`} className={classes.menuItem}>
+                        <img src={chainLogoMap[chain.chainId]} className={classes.chainLogo} />
+                        {chain.name}
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <div className={classes.chainSubText}>{toChain.subText}</div>
+              </div>
             </div>
 
             {/* <div className={`${classes.cardRow}`}> */}
@@ -912,7 +965,12 @@ function App() {
                     Estimations
                   </div> */}
                   <div className={classes.estimationRow}>
-                    <span>Liquidity Provider Fee</span>
+                    <span className={classes.transactionFeeLabels}>
+                      Liquidity Provider Fee
+                      <LightTooltip title="0.3% fee to be given to Liquidity Providers" placement="right">
+                        <InfoIcon className={`${classes.feeInfoIcon}`} />
+                      </LightTooltip>
+                    </span>
                     {lpFeeAmount && 
                       <span>{lpFeeAmount} {selectedToken.tokenSymbol}</span>
                     }
@@ -921,7 +979,19 @@ function App() {
                     }
                   </div>
                   <div className={classes.estimationRow}>
-                    <span>Transaction Fee</span>
+                    <span className={classes.transactionFeeLabels}>
+                      Transaction Fee
+                      {selectedToChain && selectedToChain.name != "Mumbai" && 
+                        <LightTooltip title={`Fee corresponding to the transaction done by Biconomy to transfer funds on ${selectedToChain.name}. It varies as per the market gas price on ${selectedToChain.name}.`} placement="right">
+                          <InfoIcon className={`${classes.feeInfoIcon}`} />
+                        </LightTooltip>
+                      }
+                      {selectedToChain && selectedToChain.name === "Mumbai" && 
+                        <LightTooltip title={`Funds transfer to Polygon is sponsored by Biconomy`} placement="right">
+                          <InfoIcon className={`${classes.feeInfoIcon}`} />
+                        </LightTooltip>
+                      }
+                    </span>
                     {transactionFee != undefined && transactionTokenCurrency &&
                       <span>{transactionFee} {transactionTokenCurrency}</span>
                     }
@@ -931,7 +1001,12 @@ function App() {
                   </div>
                   {estimatedTokensToGet && selectedToken && selectedToken.tokenSymbol &&
                     <div className={classes.estimationRow, classes.tokensToGetRow}>
-                      <span>You get minimum</span>
+                      <span className={classes.transactionFeeLabels}>
+                        You get minimum
+                        <LightTooltip title={`Minimum funds you will get on ${selectedToChain.name}`} placement="right">
+                          <InfoIcon className={`${classes.feeInfoIcon}`} />
+                        </LightTooltip>
+                      </span>
                       <span>{estimatedTokensToGet} {selectedToken.tokenSymbol}</span>
                     </div>
                   }

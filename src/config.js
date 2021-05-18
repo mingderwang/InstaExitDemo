@@ -3,6 +3,7 @@ let config = {};
 let chains = {
     MUMBAI: { 
         name: "Mumbai",
+        subText: "Polygon testnet",
         chainId: 80001,
         rpcUrl: "https://rpc-mumbai.matic.today",
         currency: "Test MATIC",
@@ -10,6 +11,7 @@ let chains = {
     },
     GOERLI: { 
         name: "Goerli",
+        subText: "Ethereum testnet",
         chainId: 5,
         rpcUrl: "https://goerli.infura.io/v3/d126f392798444609246423b06116c77",
         currency: "Goerli ETH",
