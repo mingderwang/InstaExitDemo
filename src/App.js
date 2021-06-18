@@ -19,6 +19,8 @@ import ErrorIcon from '@material-ui/icons/Error';
 import styled from 'styled-components';
 import BiconomyLogo from './assets/Biconomy-logo.png';
 import Tooltip from '@material-ui/core/Tooltip';
+import Notify from "bnc-notify"
+import AwesomeDebouncePromise from 'awesome-debounce-promise';
 
 import ReactNotification from 'react-notifications-component';
 import 'react-notifications-component/dist/theme.css';
@@ -41,7 +43,10 @@ import {
   updateMaxDeposit,
   updateSwitchNetworkText,
   toggleSwitchNetworkDisplay,
-  updateTransactionFee
+  updateTransactionFee,
+  updateApproveButtonState,
+  updateTransferButtonState,
+  updateLPManagerAddresses
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
@@ -77,7 +82,7 @@ let chainLogoMap = {
 
 let explorerURLMap = {
   80001: "https://explorer-mumbai.maticvigil.com/tx/",
-  137: "https://explorer-mainnet.maticvigil.com/tx/",
+  137: "https://polygonscan.com/tx/",
   5: "https://goerli.etherscan.io/tx/",
   1: "https://etherscan.io/tx/"
 }
@@ -127,10 +132,17 @@ const useStyles = makeStyles((theme) => ({
     paddingLeft: "20px",
     paddingRight: "20px",
   },
+  actionButton: {
+    margin: "0px 5px",
+    width: "100%"
+  },
   formControlFullWidth: {
     margin: theme.spacing(1),
     minWidth: 150,
-    width: "100%"
+    width: "100%",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-evenly"
   },
   exitHashLink: {
     textDecoration: "none",
@@ -231,8 +243,12 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
-const fromChainList = [config.chains.MUMBAI, config.chains.GOERLI];
-const toChainList = [config.chains.MUMBAI, config.chains.GOERLI];
+const fromChainList = config.supportedChainArrray;
+const toChainList = config.supportedChainArrray;
+let notify;
+
+const getTokenGasPrice = (tokenAddress, networkId, fetchOptions) => fetch(`${config.hyphen.baseURL}${config.hyphen.getTokenGasPricePath}?tokenAddress=${tokenAddress}&networkId=${networkId}`, fetchOptions)
+const getTokenGasPriceDebounced = AwesomeDebouncePromise(getTokenGasPrice, 500);
 
 function App() {
   const classes = useStyles();
@@ -245,8 +261,15 @@ function App() {
   const selectedToChain = useSelector(state => state.network.selectedToChain);
   const transactionFee = useSelector(state => state.transaction.transactionFee);
   const transactionTokenCurrency = useSelector(state => state.transaction.tokenCurrency);
+  const approveButtonEnabled = useSelector(state => state.transaction.approveButtonEnabled);
+  const approveButtonVisible = useSelector(state => state.transaction.approveButtonVisible);
+  const approveButtonText = useSelector(state => state.transaction.approveButtonText);
+  const transferButtonEnabled = useSelector(state => state.transaction.transferButtonEnabled);
+  const transferButtonText = useSelector(state => state.transaction.transferButtonText);
+
   const switchNetworkText = useSelector(state => state.network.switchNetworkText);
   const showSwitchNetworkButton = useSelector(state => state.network.showSwitchNetworkButton);
+  const fromLPManagerAddress = useSelector(state => state.network.fromLPManagerAddress);
 
   const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
   const minDepositAmount = useSelector(state => state.tokens.minDeposit);
@@ -271,6 +294,7 @@ function App() {
   const [showEstimation, setShowEstimation] = useState(false);
   const [walletChainId, setWalletChainId] = useState();
   const [faucetBalance, setFaucetBalance] = useState({});
+  const [amountInputDisabled, setAmountInputDisabled] = useState(true);
 
   useEffect(() => {
     async function init() {
@@ -285,11 +309,33 @@ function App() {
 
         let network = await ethersProvider.getNetwork();
         setWalletChainId(network.chainId);
+        
+        let walletChain = config.chainIdMap[network.chainId];
+
+        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
+          onFromChainSelected({target: {value: network.chainId}});
+
+        initBlocknativeNotify(network);
+
+        let biconomyOptions = {
+          enable: false
+        };
+        console.log(walletChain);
+        if(walletChain) {
+          if(walletChain.biconomy && walletChain.biconomy.enable && walletChain.biconomy.apiKey) {
+            biconomyOptions.enable = true;
+            biconomyOptions.debug = true;
+            biconomyOptions.apiKey = walletChain.biconomy.apiKey
+          } else {
+            console.log(`Biconomy is not enabled for ${walletChain.name}`);
+          }
+        }
 
         let hyphen = new Hyphen(provider, {
           debug: true,
-          environment: "test",
+          environment: config.getEnv(),
           infiniteApproval: true,
+          biconomy: biconomyOptions,
           onFundsTransfered: (data) => {
             console.log("Funds transfer successfull");
             console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
@@ -299,18 +345,18 @@ function App() {
             </div>, "success");
           }
         });
-
+        
         await hyphen.init();
         
-        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
-          onFromChainSelected({target: {value: network.chainId}});
-
         signer = ethersProvider.getSigner();
         let userAddress = await signer.getAddress();
         if (userAddress) {
           setUserAddress(userAddress);
         }
 
+        // updateFaucetBalance();
+        setHyphen(hyphen);
+        
         ethersProvider.on("network", (newNetwork, oldNetwork) => {
           // When a Provider makes its initial connection, it emits a "network"
           // event with a null oldNetwork along with the newNetwork. So, if the
@@ -327,8 +373,6 @@ function App() {
         // } catch (error) {
         //   console.log(error);
         // }
-        updateFaucetBalance();
-        setHyphen(hyphen);
 
         // Hanlde user address change
         if(provider.on) {          
@@ -356,6 +400,33 @@ function App() {
     }
   }, []);
 
+  function initBlocknativeNotify(network) {
+    try {
+      if (network && config.blocknative.supportedNetworks.indexOf(network.chainId) >= 0) {
+        console.log(`Blocknative is supported for selected Network id ${network.chainId}`);
+        notify = Notify({
+          dappId: config.blocknative.apiKey,
+          networkId: network.chainId
+        });
+      }
+    } catch(error) {
+      console.log(error);
+      showInfoMessage("Error while initializing notification module");
+    }
+  }
+
+  const checkForNegativeAmount = (amountToGet) => {
+    if(amountToGet && amountToGet < 5) {
+      dispatch(updateApproveButtonState(false, false, "Approve"));
+      dispatch(updateTransferButtonState(false, "Amount too low"));
+    }
+  }
+
+  useEffect(() => {
+    checkForNegativeAmount(estimatedTokensToGet);
+  }, [estimatedTokensToGet])
+
+
   useEffect(() => {
     console.log("Selected token changed", selectedToken)
     selectedTokenRef.current = selectedToken;
@@ -364,39 +435,54 @@ function App() {
       dispatch(updateMinDeposit(undefined));
       dispatch(updateMaxDeposit(undefined));
       dispatch(updateTransactionFee("...", selectedToken.tokenSymbol));
+      setShowEstimation(false);
       updateUserBalance(userAddress, selectedToken);
-      calculateTransactionFee(selectedTokenAmount);
+      updatePoolInfo(selectedToken.address, selectedFromChain.chainId, selectedToChain.chainId);
     }
   }, [selectedToken, userAddress])
 
+  useEffect(() => {
+    calculateTransactionFee(selectedTokenAmount);
+  }, [selectedTokenBalance])
+
   const updateUserBalance = async (userAddress, selectedToken) => {
-    checkNetwork().then(async status => {
-      if (status) {
-        if (userAddress) {
-          console.log(`User address is ${userAddress}`)
-          console.log("network is same");
-          let tokenAddress = selectedToken.address;
+    let status = await checkNetwork();
+    if (status) {
+      if (userAddress) {
+        console.log(`User address is ${userAddress}`)
+        let tokenAddress = selectedToken.address;
+        if(tokenAddress) {
           let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
           let userBalance = await tokenContract.balanceOf(userAddress);
           let decimals = await tokenContract.decimals();
           let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
           if (balance != undefined) balance = balance.toFixed(2);
-
+          checkUserBalance(selectedTokenAmount);
           dispatch(updateSelectedTokenBalance(balance, userBalance.toString()));
-          if(hyphen) {
-            let poolInfo = await hyphen.getPoolInformation(tokenAddress, selectedFromChain.chainId, selectedToChain.chainId);
-            if(poolInfo && poolInfo.minDepositAmount && poolInfo.maxDepositAmount) {
-              dispatch(updateMinDeposit(poolInfo.minDepositAmount));
-              dispatch(updateMaxDeposit(poolInfo.maxDepositAmount));
-            }
-            console.log(poolInfo);
-          }
-          
-        } else {
-          showErrorMessage("User address is not initialized");
+          return balance;
         }
+      } else {
+        showErrorMessage("User address is not initialized");
       }
-    })
+    }
+  }
+
+  const updatePoolInfo = async (tokenAddress, fromChainId, toChainId) => {
+    if(hyphen) {
+      let poolInfo = await hyphen.getPoolInformation(tokenAddress, fromChainId, toChainId);
+      if(poolInfo && poolInfo.minDepositAmount && poolInfo.maxDepositAmount) {
+        dispatch(updateMinDeposit(poolInfo.minDepositAmount));
+        dispatch(updateMaxDeposit(poolInfo.maxDepositAmount));
+        setAmountInputDisabled(false);
+        if(poolInfo.fromLPManagerAddress && poolInfo.toLPManagerAddress) {
+          dispatch(updateLPManagerAddresses(poolInfo.fromLPManagerAddress, poolInfo.toLPManagerAddress));
+        }
+      } else {
+        showErrorMessage("Unable to update pool information");
+      }
+    } else {
+      showErrorMessage("Hyphen is not defined. Unable to update pool information");
+    }
   }
 
   const updateFaucetBalance = async () => {
@@ -503,11 +589,12 @@ function App() {
   const onFromChainSelected = (event) => {
     let selectedNetwork = config.chainIdMap[event.target.value]
     let currentToChain = selectedToChain;
-
     setFromChain(selectedNetwork);
     dispatch(updateSelectedFromChain(selectedNetwork));
 
     // If selected 'from' chain and current 'to' chain are same
+    console.log('Selected Network: ', selectedNetwork);
+    console.log('Current To Chain: ', currentToChain);
     if (currentToChain.chainId === selectedNetwork.chainId) {
       let supportedChainsArray = Object.keys(config.chains);
       let nextChain;
@@ -526,7 +613,6 @@ function App() {
     if (hyphen && selectedNetwork.chainId) {
       let tokenList = hyphen.getSupportedTokens(selectedNetwork.chainId);
       if (tokenList) {
-        console.log("dispatching updateSupportedTokens")
         dispatch(updateSupportedTokensAndSelectedToken(tokenList));
       } else {
         showErrorMessage(`Unable to get supported token list for network id ${selectedNetwork.chainId} `)
@@ -546,28 +632,84 @@ function App() {
     }
   }
 
+  const flipNetworks = () => {
+    if(selectedFromChain && selectedToChain) {
+      let selectedFromChainId = selectedFromChain.chainId;
+      let selectedToChainId = selectedToChain.chainId;
+      onFromChainSelected({target: {value: selectedToChainId}})
+      // onToChainSelected({target: {value: selectedFromChainId}});
+    }
+  }
+
   const handleTokenAmount = async (event) => {
     let amount = event.target.value;
     setLpFeeAmount();
     if (amount !== undefined && amount.toString) {
-      if (amount != "") {
-        if (parseFloat(amount) > 0) {
-          await calculateTransactionFee(amount);
-          setShowEstimation(true);
-        } else {
-          setShowEstimation(false);
+      dispatch(updateTokenAmount(amount));
+      setTokenAmount(amount.toString());
+      if (amount != "" && parseFloat(amount) > 0) {
+        if(minDepositAmount != undefined && maxDepositAmount != undefined) {
+          console.log(amount);
+          console.log(minDepositAmount);
+          console.log(maxDepositAmount);
+          if(amount < parseFloat(minDepositAmount) || amount > parseFloat(maxDepositAmount)) {
+            setShowEstimation(false);
+            dispatch(updateApproveButtonState(false, false, "Approve"));
+            dispatch(updateTransferButtonState(false, `Enter amount between ${minDepositAmount} and ${maxDepositAmount}`))
+            return;
+          } else {
+            dispatch(updateTransferButtonState(false, `Checking ...`))
+          }
         }
+        await calculateTransactionFee(amount);
+      } else {
+        setShowEstimation(false);
+        dispatch(updateTransferButtonState(false, "Enter an amount"));
+        dispatch(updateApproveButtonState(false, false, "Approve"));
       }
 
-      setTokenAmount(amount.toString());
-      dispatch(updateTokenAmount(amount));
     } else {
       showErrorMessage("Please enter valid amount");
     }
   }
 
-  const calculateTransactionFee = async (amount) => {
+  const checkTokenApproval = async (amount) => {
+    try{
+      if(hyphen) {
+        if(amount && amount > 0) {
+          if(fromLPManagerAddress && selectedToken.address && userAddress) {
+            let tokenAllowance = await hyphen.getERC20Allowance(selectedToken.address, userAddress, fromLPManagerAddress);
+            let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
+            let rawAmount = BigNumber.from(`${amount*Math.pow(10, tokenDecimals)}`).toHexString();
+            if(tokenAllowance !== undefined) {
+              if(tokenAllowance.lt(rawAmount)) {
+                dispatch(updateApproveButtonState(true, true, `Approve ${selectedToken.tokenSymbol}`));
+                dispatch(updateTransferButtonState(false, "Transfer"));
+              } else {
+                dispatch(updateApproveButtonState(false, false, `Approval Found`));
+                dispatch(updateTransferButtonState(true, "Transfer"));
+              }
+            } else {
+              showErrorMessage("Unable to check token approval");
+            }
+            console.log("Token allowance is ", tokenAllowance);
+            console.log("Token amount", rawAmount);
+          } else {
+            console.log(`fromLPManagerAddress: ${fromLPManagerAddress}, selectedToken.address: ${selectedToken.address}, userAddress: ${userAddress} `);
+            showErrorMessage("Unable to check token approval");
+          }
+        }
+      } else {
+        showErrorMessage("Hyphen is not initialised properly");
+      }
+    } catch(error) {
+      console.error(error);
+      showErrorMessage("Unable to check token approval. Check console for more info");
+    }
+  }
 
+  const calculateTransactionFee = async (amount) => {
+    console.log("calculate fee for amount", amount);
     const fetchOptions = {
       method: "GET",
       headers: {
@@ -584,42 +726,47 @@ function App() {
       let selectedTokenConfig = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
       if(selectedTokenConfig) {
         let toChainTokenAddress = selectedTokenConfig.address;
-        fetch(`${config.hyphen.baseURL}${config.hyphen.getTokenGasPricePath}?tokenAddress=${toChainTokenAddress}&networkId=${selectedToChain.chainId}`, fetchOptions)
-            .then(response => response.json())
-            .then((response) => {
-                if (response && response.tokenGasPrice != undefined) {
-                    console.log(`Token gas price for ${selectedToken.tokenSymbol} is ${response.tokenGasPrice}`);
-                    let tokenGasPrice = response.tokenGasPrice;
-                    if(tokenGasPrice != undefined && selectedTokenConfig) {
-                      let overhead = selectedTokenConfig.transferOverhead;
-                      let decimal = selectedTokenConfig.decimal;
-                      if(overhead && decimal) {
-                        let transactionFeeRaw = BigNumber.from(overhead).mul(tokenGasPrice);
-                        let transactionFee = parseFloat(transactionFeeRaw)/parseFloat(ethers.BigNumber.from(10).pow(decimal));
-                        if(transactionFee) transactionFee = transactionFee.toFixed(2);
-                        dispatch(updateTransactionFee(transactionFee, selectedToken.tokenSymbol));
-
-                        if(transactionFee != undefined && lpFeeAmount != undefined && amount) {
-                          let amountToGet = parseFloat(amount) - (parseFloat(transactionFee) + parseFloat(lpFeeAmount));
-                          if(amountToGet) {
-                            amountToGet = amountToGet.toFixed(2);
-                            setEstimatedTokensToGet(amountToGet);
-                          }
-                        }
-
-                      } else {
-                        console.error("Error while getting token overhead gas and decimal from config");
+        let fetchResponse = await getTokenGasPriceDebounced(toChainTokenAddress, selectedToChain.chainId, fetchOptions);
+        // Check the balance again using tokenAmount
+        let userBalanceCheck = await checkUserBalance(amount);
+        if(userBalanceCheck) {
+          checkTokenApproval(amount);
+          if(fetchResponse && fetchResponse.json) {
+            let response = await fetchResponse.json();
+            if (response && response.tokenGasPrice != undefined) {
+                console.log(`Token gas price for ${selectedToken.tokenSymbol} is ${response.tokenGasPrice}`);
+                let tokenGasPrice = response.tokenGasPrice;
+                if(tokenGasPrice != undefined && selectedTokenConfig) {
+                  let overhead = selectedTokenConfig.transferOverhead;
+                  let decimal = selectedTokenConfig.decimal;
+                  if(overhead && decimal) {
+                    let transactionFeeRaw = BigNumber.from(overhead).mul(tokenGasPrice);
+                    let transactionFee = parseFloat(transactionFeeRaw)/parseFloat(ethers.BigNumber.from(10).pow(decimal));
+                    if(transactionFee) transactionFee = transactionFee.toFixed(2);
+                    dispatch(updateTransactionFee(transactionFee, selectedToken.tokenSymbol));
+                    if(transactionFee != undefined && lpFeeAmount != undefined && amount) {
+                      setShowEstimation(true);
+                      let amountToGet = parseFloat(amount) - (parseFloat(transactionFee) + parseFloat(lpFeeAmount));
+                      if(amountToGet) {
+                        amountToGet = amountToGet.toFixed(2);
+                        setEstimatedTokensToGet(amountToGet);
                       }
-                    } else {
-                      console.error("Error while getting selectedTokenConfig and tokenGasPrice from hyphen API");
                     }
+  
+                  } else {
+                    console.error("Error while getting token overhead gas and decimal from config");
+                  }
                 } else {
-                    console.error(`Unable to get token gas price for ${selectedToken.tokenSymbol}`);
+                  console.error("Error while getting selectedTokenConfig and tokenGasPrice from hyphen API");
                 }
-            })
-            .catch((error) => {
-                console.error(error);
-            });
+            } else {
+                console.error(`Unable to get token gas price for ${selectedToken.tokenSymbol}`);
+            }
+          }
+        } else {
+          // User balance is not enough
+          setShowEstimation(false);
+        }
       }
     } else {
       showErrorMessage("Unable to get selected token symbol and network");
@@ -627,13 +774,66 @@ function App() {
   }
 
   const checkUserBalance = async (amount) => {
+    console.log("checking against user balance for amount", amount)
+    console.log("selectedTokenBalance" , selectedTokenBalance)
     let balanceCheck = false;
     if(selectedTokenBalance && amount) {
       if(parseFloat(selectedTokenBalance) >= parseFloat(amount.toString())) {
         balanceCheck = true;
+      } else {
+        dispatch(updateApproveButtonState(false, false, approveButtonText));
+        if(selectedToken && selectedToken.tokenSymbol) {
+          dispatch(updateTransferButtonState(false, `Insufficient ${selectedToken.tokenSymbol} balance`));
+        } else {
+          dispatch(updateTransferButtonState(false, `Insufficient balance`));
+        }
       }
     }
     return balanceCheck;
+  }
+
+  /**
+   *  Check if notify is defined and let it know about the hash.
+   *  It will track and show the notification on the UI
+   * */ 
+  const trackTransactionHash = (hash) => {
+    if(notify) {
+      const { emitter } = notify.hash(hash);
+      if(emitter) {
+        emitter.on("all", (transaction)=>{
+          console.log(transaction)
+        });
+      }
+    }
+  }
+
+  const onApprove = async () => {
+    if(hyphen) {
+      try {
+        if(selectedToken && selectedToken.address && fromLPManagerAddress && selectedTokenAmount !== undefined && userAddress) {
+          dispatch(updateApproveButtonState(false, true, "Processing ..."));
+          let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
+          let rawAmount = BigNumber.from(`${selectedTokenAmount*Math.pow(10, tokenDecimals)}`).toHexString();
+          let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, userAddress);
+          trackTransactionHash(approveTx.hash);
+          await approveTx.wait(1);
+          dispatch(updateApproveButtonState(false, true, `Approval Done`));
+          dispatch(updateTransferButtonState(true, `Transfer`));
+        } else {
+          console.log(`Token address: ${selectedToken.address}, Spender: ${fromLPManagerAddress}, Amount: ${selectedTokenAmount}, UserAddress: ${userAddress}`);
+          showErrorMessage("Unable to proceed with approval. Some information is missing. Check console for more info");
+        }
+      } catch(error) {
+        if(error.message && error.message.indexOf("User denied transaction signature") > -1) {
+          showErrorMessage("User denied transaction. Unable to proceed");
+        } else {
+          showErrorMessage("Unable to get token approval");
+        }
+        checkTokenApproval(selectedTokenAmount);
+      }
+    } else {
+      showErrorMessage("Hyphen is not defined");
+    }
   }
 
   const onTransfer = async () => {
@@ -661,6 +861,7 @@ function App() {
       let toChainId = selectedToChain.chainId;
 
       showFeedbackMessage("Initiaiting Transfer");
+      dispatch(updateTransferButtonState(false, "Transfer"));
       let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
 
       amount = amount * Math.pow(10, tokenDecimals);
@@ -694,36 +895,33 @@ function App() {
             });
 
             showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
-            console.log(depositTx);
+            trackTransactionHash(depositTx.hash);
             await depositTx.wait(1);
             showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
             updateUserBalance(userAddress, selectedToken);
           } catch (error) {
             console.log(error);
+            dispatch(updateTransferButtonState(true, "Transfer"));
             showErrorMessage("Error while depositing funds");
           }
         } else if(transferStatus.code === RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
-            showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
-            showInfoMessage(`Please confirm Approval transaction in your wallet`);
-            let approveTx = await hyphen.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString());
-            showFeedbackMessage(`Waiting for approval confirmation`);
-            await approveTx.wait(2);
-            showSuccessMessage("Approval transaction confirmed");
-            showFeedbackMessage("Initiating deposit transaction");
-            let depositTx = await deposit({
-              sender: await signer.getAddress(),
-              receiver: await signer.getAddress(),
-              tokenAddress: selectedToken.address,
-              depositContractAddress: transferStatus.depositContract,
-              amount: amount.toString(),
-              fromChainId: fromChainId,
-              toChainId: toChainId,
-            });
-
-            showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
-            console.log(depositTx);
-            await depositTx.wait(1);
-            showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+            try {
+              showFeedbackMessage(`Approval not found for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`);
+              showInfoMessage(`Please confirm Approval transaction in your wallet`);
+              dispatch(updateApproveButtonState(false, true, "Processing ..."));
+              dispatch(updateTransferButtonState(false, "Transfer"));
+              let approveTx = await hyphen.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString(), userAddress);
+              trackTransactionHash(approveTx.hash);
+              showFeedbackMessage(`Waiting for approval confirmation`);
+              await approveTx.wait(1);
+              showSuccessMessage("Approval transaction confirmed");
+              dispatch(updateApproveButtonState(false, true, "Approval Done"));
+              dispatch(updateTransferButtonState(true, "Transfer"));
+              checkTokenApproval(selectedTokenAmount);
+            } catch(error) {
+              console.log(error);
+              checkTokenApproval(amount);
+            }
         } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_NETWORK) {
           showErrorMessage("Target chain id is not supported yet");
         } else if (transferStatus.code === RESPONSE_CODES.NO_LIQUIDITY) {
@@ -736,6 +934,7 @@ function App() {
       }
     } catch (error) {
       if (error && error.message) {
+        dispatch(updateTransferButtonState(true, "Transfer"));
         showErrorMessage(error.message);
       } else {
         showErrorMessage(`Make sure your wallet is on ${selectedFromChain.name} network`)
@@ -859,14 +1058,14 @@ function App() {
         onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}/>
 
       <div className="App">
-      <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
+      {/* <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
         chainLogoMap={chainLogoMap}
         selectedChain={selectedFromChain}
         faucetBalance={faucetBalance}
         getTokensFromFaucet={getTokensFromFaucet}
         chainId={selectedFromChain.chainId}
         tokenSymbolList={Object.keys(config.tokensMap)}
-      />
+      /> */}
 
       <section className={classes.mainContainer}>
 
@@ -905,7 +1104,7 @@ function App() {
               </div>
 
 
-              <ArrowForwardIcon className={classes.arrowBetweenNetworks}/>
+              <ArrowForwardIcon className={classes.arrowBetweenNetworks} onClick={flipNetworks}/>
 
               <div className={classes.selectContainer}>
                 <FormControl variant="outlined" size="small" className={classes.formControl}>
@@ -945,6 +1144,7 @@ function App() {
                 <TextField id="token-amount" size="small" label="Amount"
                   variant="outlined" className={classes.formControl} type="number"
                   value={tokenAmount}
+                  disabled={amountInputDisabled}
                   InputProps={{ inputProps: { min: 100, max: 1000 } }}
                   style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
                 {minDepositAmount !== undefined && maxDepositAmount !== undefined && 
@@ -981,12 +1181,12 @@ function App() {
                   <div className={classes.estimationRow}>
                     <span className={classes.transactionFeeLabels}>
                       Transaction Fee
-                      {selectedToChain && selectedToChain.name != "Mumbai" && 
+                      {selectedToChain && (selectedToChain.name != "Mumbai" && selectedToChain.name != "Polygon (Matic)") && 
                         <LightTooltip title={`Fee corresponding to the transaction done by Biconomy to transfer funds on ${selectedToChain.name}. It varies as per the market gas price on ${selectedToChain.name}.`} placement="right">
                           <InfoIcon className={`${classes.feeInfoIcon}`} />
                         </LightTooltip>
                       }
-                      {selectedToChain && selectedToChain.name === "Mumbai" && 
+                      {selectedToChain && (selectedToChain.name === "Mumbai" || selectedToChain.name === "Polygon (Matic)") &&
                         <LightTooltip title={`Funds transfer to Polygon is sponsored by Biconomy`} placement="right">
                           <InfoIcon className={`${classes.feeInfoIcon}`} />
                         </LightTooltip>
@@ -1003,7 +1203,7 @@ function App() {
                     <div className={classes.estimationRow, classes.tokensToGetRow}>
                       <span className={classes.transactionFeeLabels}>
                         You get minimum
-                        <LightTooltip title={`Minimum funds you will get on ${selectedToChain.name}`} placement="right">
+                        <LightTooltip title={`Minimum funds you will get on ${selectedToChain.name}. Actual amount may vary slightly based on on-chain data.`} placement="right">
                           <InfoIcon className={`${classes.feeInfoIcon}`} />
                         </LightTooltip>
                       </span>
@@ -1015,14 +1215,25 @@ function App() {
             }
             <div className={classes.cardRow}>
               <FormControl variant="standard" size="medium" className={classes.formControlFullWidth}>
-                <Button onClick={onTransfer} size="large" variant="contained" color="secondary">Transfer</Button>
+                {approveButtonVisible && 
+                  <Button className={classes.actionButton} onClick={onApprove} 
+                    size="large" variant="contained" color="secondary"
+                    disabled={!approveButtonEnabled}>
+                    {approveButtonText}
+                  </Button>
+                }
+                <Button className={classes.actionButton} onClick={onTransfer} 
+                  size="large" variant="contained" color="secondary"
+                  disabled={!transferButtonEnabled}>
+                  {transferButtonText}
+                </Button>
               </FormControl>
             </div>
 
           </CardContent>
         </Card>
       </section>
-
+{/* 
       <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
         chainLogoMap={chainLogoMap}
         selectedChain={selectedToChain}
@@ -1030,7 +1241,7 @@ function App() {
         getTokensFromFaucet={getTokensFromFaucet}
         chainId={selectedToChain.chainId}
         tokenSymbolList={Object.keys(config.tokensMap)}
-      />
+      /> */}
 
       <ProgressDialog open={openProgressDialog}
         feedbackMessage={feedbackMessage} feedbackTitle={feedbackTitle} handleClose={handleCloseFeedback} />

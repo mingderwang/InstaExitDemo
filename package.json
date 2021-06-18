@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@biconomy/hyphen": "0.0.2",
+    "@biconomy/hyphen": "0.0.3",
     "@biconomy/mexa": "^1.5.10",
     "@material-ui/core": "^4.9.0",
     "@material-ui/icons": "^4.11.2",
@@ -11,6 +11,8 @@
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",
     "@testing-library/user-event": "^7.1.2",
+    "awesome-debounce-promise": "^2.1.0",
+    "bnc-notify": "^1.6.1",
     "eth-sig-util": "^2.5.2",
     "ethereumjs-abi": "^0.6.8",
     "ethereumjs-tx": "^2.1.2",
@@ -30,9 +32,13 @@
   },
   "scripts": {
     "start": "PORT=6005 react-scripts start",
+    "start:prod": "REACT_APP_ENV=prod PORT=6005 react-scripts start",
+    "start:test": "REACT_APP_ENV=test PORT=6005 react-scripts start",
     "build": "react-scripts build",
+    "build:prod": "REACT_APP_ENV=prod react-scripts build",
+    "build:test": "REACT_APP_ENV=test react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scridpts eject"
   },
   "eslintConfig": {
     "extends": "react-app"

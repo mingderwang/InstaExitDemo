@@ -5,7 +5,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background : repeat rgba(235, 150, 108, 0.1);
+  /* background : repeat rgba(235, 150, 108, 0.1); */
+  background: repeat rgba(100, 188, 66, 0.1)
 }
 
 code {
@@ -17,7 +18,7 @@ code {
   padding: 5px;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: center;
 }
 
 .main {

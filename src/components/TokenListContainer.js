@@ -6,7 +6,7 @@ import FormHelperText from '@material-ui/core/FormHelperText';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import { useSelector, useDispatch } from 'react-redux'
-import { updateSupportedTokens, updateSelectedToken } from '../redux'
+import { updateSupportedTokens, updateSelectedToken, updateApproveButtonState, updateTransferButtonState } from '../redux'
 import { useState } from 'react';
 
 
@@ -41,7 +41,8 @@ function TokenListContainer(props) {
     const selectedTokenFormState = useSelector(state => state.tokens.selectedToken);
     const tokenList = useSelector(state => state.tokens.tokenList);
     const tokenMap = useSelector(state => state.tokens.tokenMap);
-    
+    const transferButtonText = useSelector(state => state.transaction.transferButtonText);
+
     const [selectedToken, setSelectedToken] = useState(selectedTokenFormState);
     const hyphen = props.hyphen;
 
@@ -64,6 +65,8 @@ function TokenListContainer(props) {
 
     const handleChange = (event) => {
         if(tokenMap) {
+            dispatch(updateApproveButtonState(false, false, "Approve"));
+            dispatch(updateTransferButtonState(false, transferButtonText));
             dispatch(updateSelectedToken(tokenMap[event.target.value]));
             setSelectedToken(tokenMap[event.target.value]);
         } else {

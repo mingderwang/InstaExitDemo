@@ -65,6 +65,7 @@ export const updateSelectedTokenBalance = (balance, rawBalance) => {
 
 
 export const updateTokenAmount = (amount) => {
+  console.log("Updating token amount using dispatch ", amount);
   return {
     type: SET_TOKEN_AMOUNT,
     payload: {
