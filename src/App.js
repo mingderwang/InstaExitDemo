@@ -693,7 +693,11 @@ function App() {
           if(fromLPManagerAddress && selectedToken.address && userAddress) {
             let tokenAllowance = await hyphen.getERC20Allowance(selectedToken.address, userAddress, fromLPManagerAddress);
             let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
-            let rawAmount = BigNumber.from(`${amount*Math.pow(10, tokenDecimals)}`).toHexString();
+
+            let rawAmount = amount * Math.pow(10, tokenDecimals);
+            rawAmount = rawAmount.toLocaleString('fullwide', {useGrouping:false})
+            rawAmount = BigNumber.from(rawAmount).toHexString();
+
             if(tokenAllowance !== undefined) {
               if(tokenAllowance.lt(rawAmount)) {
                 dispatch(updateApproveButtonState(true, true, `Approve ${selectedToken.tokenSymbol}`));
@@ -826,7 +830,11 @@ function App() {
         if(selectedToken && selectedToken.address && fromLPManagerAddress && selectedTokenAmount !== undefined && userAddress) {
           dispatch(updateApproveButtonState(false, true, "Processing ..."));
           let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
-          let rawAmount = BigNumber.from(`${selectedTokenAmount*Math.pow(10, tokenDecimals)}`).toHexString();
+
+          let rawAmount = selectedTokenAmount * Math.pow(10, tokenDecimals);
+          rawAmount = rawAmount.toLocaleString('fullwide', {useGrouping:false})
+          rawAmount = BigNumber.from(rawAmount).toHexString();
+          
           let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, userAddress);
           trackTransactionHash(approveTx.hash);
           await approveTx.wait(1);
