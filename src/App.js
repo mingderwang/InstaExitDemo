@@ -289,7 +289,7 @@ function App() {
   const [openProgressDialog, setOpenProgressDialog] = useState(false);
   const [feedbackTitle, setFeedbackTitle] = useState("Status");
   const [feedbackIcon, setFeedbackIcon] = useState();
-  const [lpFee, setLpFee] = useState(".3");
+  const [lpFee, setLpFee] = useState(".03");
   const [lpFeeAmount, setLpFeeAmount] = useState();
   const [showEstimation, setShowEstimation] = useState(false);
   const [walletChainId, setWalletChainId] = useState();
@@ -337,12 +337,22 @@ function App() {
           infiniteApproval: true,
           biconomy: biconomyOptions,
           onFundsTransfered: (data) => {
-            console.log("Funds transfer successfull");
-            console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
-            showFeedbackMessage(<div>
-              Cross chain transfer successfull !!
-                <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
-            </div>, "success");
+            if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
+              // Exit hash found but transaction is not yet confirmed
+              console.log("Exit hash found but is in pending state");
+              console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+              showFeedbackMessage(<div>
+                Transfer Initiated !!
+                  <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+              </div>);
+            } else {
+              console.log("Funds transfer successfull");
+              console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+              showFeedbackMessage(<div>
+                Cross chain transfer successfull !!
+                  <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+              </div>, "success");
+            }
           }
         });
         
@@ -354,7 +364,7 @@ function App() {
           setUserAddress(userAddress);
         }
 
-        // updateFaucetBalance();
+        updateFaucetBalance();
         setHyphen(hyphen);
         
         ethersProvider.on("network", (newNetwork, oldNetwork) => {
@@ -486,35 +496,38 @@ function App() {
   }
 
   const updateFaucetBalance = async () => {
-    let faucetBalance = {};
-    let faucetChains = [selectedFromChain.chainId, selectedToChain.chainId];
+    if(selectedFromChain.name === "Mumbai" || selectedFromChain.name === "Goerli") {
 
-    if (faucetChains) {
-      for (let index = 0; index < faucetChains.length; index++) {
-        let faucetPerChain = {};
-        let chainId = faucetChains[index];
-        let faucet = config.faucet[chainId];
-        if (config.tokensMap) {
-          let tokensArray = Object.keys(config.tokensMap);
-          let rpcUrl = config.chainIdMap[chainId].rpcUrl;
-          let ethersProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
-
-          for (let subIndex = 0; subIndex < tokensArray.length; subIndex++) {
-            let tokenSymbol = tokensArray[subIndex];
-            let tokenAddress = config.tokensMap[tokenSymbol][chainId].address;
-            let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, ethersProvider);
-            let balance = await tokenContract.balanceOf(faucet.address);
-            let decimals = await tokenContract.decimals();
-            balance = balance.toString() / BigNumber.from(10).pow(decimals).toString();
-            if (balance != undefined) balance = balance.toFixed(2);
-            faucetPerChain[tokenAddress] = balance;
+      let faucetBalance = {};
+      let faucetChains = [selectedFromChain.chainId, selectedToChain.chainId];
+  
+      if (faucetChains) {
+        for (let index = 0; index < faucetChains.length; index++) {
+          let faucetPerChain = {};
+          let chainId = faucetChains[index];
+          let faucet = config.faucet[chainId];
+          if (config.tokensMap) {
+            let tokensArray = Object.keys(config.tokensMap);
+            let rpcUrl = config.chainIdMap[chainId].rpcUrl;
+            let ethersProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  
+            for (let subIndex = 0; subIndex < tokensArray.length; subIndex++) {
+              let tokenSymbol = tokensArray[subIndex];
+              let tokenAddress = config.tokensMap[tokenSymbol][chainId].address;
+              let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, ethersProvider);
+              let balance = await tokenContract.balanceOf(faucet.address);
+              let decimals = await tokenContract.decimals();
+              balance = balance.toString() / BigNumber.from(10).pow(decimals).toString();
+              if (balance != undefined) balance = balance.toFixed(2);
+              faucetPerChain[tokenAddress] = balance;
+            }
           }
+          faucetBalance[chainId] = faucetPerChain;
         }
-        faucetBalance[chainId] = faucetPerChain;
       }
+      console.log(faucetBalance);
+      setFaucetBalance(faucetBalance);
     }
-    console.log(faucetBalance);
-    setFaucetBalance(faucetBalance);
   }
 
   const checkNetwork = async () => {
@@ -1058,14 +1071,16 @@ function App() {
         onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}/>
 
       <div className="App">
-      {/* <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
-        chainLogoMap={chainLogoMap}
-        selectedChain={selectedFromChain}
-        faucetBalance={faucetBalance}
-        getTokensFromFaucet={getTokensFromFaucet}
-        chainId={selectedFromChain.chainId}
-        tokenSymbolList={Object.keys(config.tokensMap)}
-      /> */}
+        { (selectedFromChain.name === "Mumbai" || selectedFromChain.name === "Goerli") &&
+          <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
+            chainLogoMap={chainLogoMap}
+            selectedChain={selectedFromChain}
+            faucetBalance={faucetBalance}
+            getTokensFromFaucet={getTokensFromFaucet}
+            chainId={selectedFromChain.chainId}
+            tokenSymbolList={Object.keys(config.tokensMap)}
+          />
+        }
 
       <section className={classes.mainContainer}>
 
@@ -1167,7 +1182,7 @@ function App() {
                   <div className={classes.estimationRow}>
                     <span className={classes.transactionFeeLabels}>
                       Liquidity Provider Fee
-                      <LightTooltip title="0.3% fee to be given to Liquidity Providers" placement="right">
+                      <LightTooltip title={`${lpFee}% fee to be given to Liquidity Providers`} placement="right">
                         <InfoIcon className={`${classes.feeInfoIcon}`} />
                       </LightTooltip>
                     </span>
@@ -1233,15 +1248,16 @@ function App() {
           </CardContent>
         </Card>
       </section>
-{/* 
-      <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
-        chainLogoMap={chainLogoMap}
-        selectedChain={selectedToChain}
-        faucetBalance={faucetBalance}
-        getTokensFromFaucet={getTokensFromFaucet}
-        chainId={selectedToChain.chainId}
-        tokenSymbolList={Object.keys(config.tokensMap)}
-      /> */}
+      { (selectedToChain.name === "Mumbai" || selectedToChain.name === "Goerli") &&
+        <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
+          chainLogoMap={chainLogoMap}
+          selectedChain={selectedToChain}
+          faucetBalance={faucetBalance}
+          getTokensFromFaucet={getTokensFromFaucet}
+          chainId={selectedToChain.chainId}
+          tokenSymbolList={Object.keys(config.tokensMap)}
+        />
+      }
 
       <ProgressDialog open={openProgressDialog}
         feedbackMessage={feedbackMessage} feedbackTitle={feedbackTitle} handleClose={handleCloseFeedback} />
