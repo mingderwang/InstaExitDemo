@@ -1,4 +1,13 @@
+const TEST_ENVIRONMENT = "test";
+const PROD_ENVIRONMENT = "prod";
+
+let getEnv = () => {
+    return process.env.REACT_APP_ENV;
+}
+
 let config = {};
+config.getEnv = getEnv;
+
 let MUMBAI = { 
     name: "Mumbai",
     subText: "Polygon testnet",
@@ -35,8 +44,6 @@ let GOERLI = {
     currency: "Goerli ETH",
     nativeFaucetURL: "https://faucet.goerli.mudit.blog/"
 }
-const TEST_ENVIRONMENT = "test";
-const PROD_ENVIRONMENT = "prod";
 let chains;
 
 if(process.env.REACT_APP_ENV === TEST_ENVIRONMENT) {
@@ -46,10 +53,6 @@ if(process.env.REACT_APP_ENV === TEST_ENVIRONMENT) {
 } else {
     chains = { MUMBAI, GOERLI };
 }
-let getEnv = () => {
-    return process.env.REACT_APP_ENV;
-}
-config.getEnv = getEnv;
 
 config.chains = chains;
 config.chainIdMap = {};
