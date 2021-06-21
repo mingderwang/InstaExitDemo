@@ -6,7 +6,7 @@ import FormHelperText from '@material-ui/core/FormHelperText';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import { useSelector, useDispatch } from 'react-redux'
-import { updateSupportedTokens, updateSelectedToken } from '../redux'
+import { updateSupportedTokens, updateSelectedToken, updateApproveButtonState, updateTransferButtonState } from '../redux'
 import { useState } from 'react';
 
 
@@ -41,9 +41,10 @@ function TokenListContainer(props) {
     const selectedTokenFormState = useSelector(state => state.tokens.selectedToken);
     const tokenList = useSelector(state => state.tokens.tokenList);
     const tokenMap = useSelector(state => state.tokens.tokenMap);
-    
+    const transferButtonText = useSelector(state => state.transaction.transferButtonText);
+
     const [selectedToken, setSelectedToken] = useState(selectedTokenFormState);
-    const instaExit = props.instaExit;
+    const hyphen = props.hyphen;
 
     useEffect(() => {
         if(selectedTokenFormState) {
@@ -52,27 +53,26 @@ function TokenListContainer(props) {
     },[selectedTokenFormState]);
 
     useEffect(() => {
-        console.log(props.instaExit);
-        if (instaExit) {
+        if (hyphen) {
             console.log(props.fromChainId);
-            let tokenList = instaExit.getSupportedTokens(props.fromChainId);
+            let tokenList = hyphen.getSupportedTokens(props.fromChainId);
             console.log(tokenList);
             dispatch(updateSupportedTokens(tokenList));
         }
-    }, [props.instaExit]);
+    }, [props.hyphen]);
 
     
 
     const handleChange = (event) => {
         if(tokenMap) {
+            dispatch(updateApproveButtonState(false, false, "Approve"));
+            dispatch(updateTransferButtonState(false, transferButtonText));
             dispatch(updateSelectedToken(tokenMap[event.target.value]));
             setSelectedToken(tokenMap[event.target.value]);
         } else {
             alert("Token Map is not initialised properly");
         }
     };
-
-    console.log(tokenList);
     return (
         <div>
             <FormControl size="small" variant="outlined" className={classes.formControl}>
