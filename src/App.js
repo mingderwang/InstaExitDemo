@@ -46,10 +46,15 @@ import {
   updateTransactionFee,
   updateApproveButtonState,
   updateTransferButtonState,
-  updateLPManagerAddresses
+  updateLPManagerAddresses,
+  updateTransferState,
+  updateTransferStepsContentArray,
+  updateTransferStepsLabelArray,
+  updateEstimatedAmountToGet
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
+import TransferActivity from "./components/transfer/TransferActivity.";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -276,6 +281,8 @@ function App() {
   const maxDepositAmount = useSelector(state => state.tokens.maxDeposit);
   const tokenMap = useSelector(state => state.tokens.tokenMap);
 
+  const currentTransferStep = useSelector(state => state.transfer.currentStep);
+
   const selectedTokenRef = useRef(selectedToken);
 
   const preventDefault = (event) => event.preventDefault();
@@ -295,6 +302,7 @@ function App() {
   const [walletChainId, setWalletChainId] = useState();
   const [faucetBalance, setFaucetBalance] = useState({});
   const [amountInputDisabled, setAmountInputDisabled] = useState(true);
+  const [openTransferActivity, setOpenTransferActivity] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -339,8 +347,9 @@ function App() {
           onFundsTransfered: (data) => {
             if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
               // Exit hash found but transaction is not yet confirmed
-              console.log("Exit hash found but is in pending state");
               console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+              dispatch(updateTransferStepsContentArray(2, `Transacion found. Waiting for confirmation`));
+
               showFeedbackMessage(<div>
                 Transfer Initiated !!
                   <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
@@ -348,6 +357,9 @@ function App() {
             } else {
               console.log("Funds transfer successfull");
               console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+
+              dispatch(updateTransferState({currentStep: 3}));
+
               showFeedbackMessage(<div>
                 Cross chain transfer successfull !!
                   <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
@@ -364,7 +376,7 @@ function App() {
           setUserAddress(userAddress);
         }
 
-        updateFaucetBalance();
+        // updateFaucetBalance();
         setHyphen(hyphen);
         
         ethersProvider.on("network", (newNetwork, oldNetwork) => {
@@ -747,7 +759,7 @@ function App() {
         // Check the balance again using tokenAmount
         let userBalanceCheck = await checkUserBalance(amount);
         if(userBalanceCheck) {
-          checkTokenApproval(amount);
+          await checkTokenApproval(amount);
           if(fetchResponse && fetchResponse.json) {
             let response = await fetchResponse.json();
             if (response && response.tokenGasPrice != undefined) {
@@ -760,13 +772,18 @@ function App() {
                     let transactionFeeRaw = BigNumber.from(overhead).mul(tokenGasPrice);
                     let transactionFee = parseFloat(transactionFeeRaw)/parseFloat(ethers.BigNumber.from(10).pow(decimal));
                     if(transactionFee) transactionFee = transactionFee.toFixed(2);
-                    dispatch(updateTransactionFee(transactionFee, selectedToken.tokenSymbol));
                     if(transactionFee != undefined && lpFeeAmount != undefined && amount) {
-                      setShowEstimation(true);
                       let amountToGet = parseFloat(amount) - (parseFloat(transactionFee) + parseFloat(lpFeeAmount));
                       if(amountToGet) {
-                        amountToGet = amountToGet.toFixed(2);
-                        setEstimatedTokensToGet(amountToGet);
+                        if(amountToGet > 0) {
+                          dispatch(updateTransactionFee(transactionFee, selectedToken.tokenSymbol));
+                          setShowEstimation(true);
+                          amountToGet = amountToGet.toFixed(2);
+                          setEstimatedTokensToGet(amountToGet);
+                          dispatch(updateEstimatedAmountToGet(amountToGet));
+                        } else {
+                          dispatch(updateTransferButtonState(false, "Amount to transfer too low"));
+                        }
                       }
                     }
   
@@ -890,7 +907,11 @@ function App() {
       
       console.log("Total amount to  be transfered: ", amount.toString())
 
-      showFeedbackMessage("Checking available liquidity");
+      //showFeedbackMessage("Checking available liquidity");
+      // Open Transfer Activity Dialog and set first label content
+      setOpenTransferActivity(true);
+      dispatch(updateTransferStepsContentArray(0, `Checking available liquidity on ${selectedToChain.name}`));
+
       let transferStatus = await hyphen.preDepositStatus({
         tokenAddress: selectedToken.address,
         amount: amount.toString(),
@@ -902,7 +923,9 @@ function App() {
       if (transferStatus) {
         if (transferStatus.code === RESPONSE_CODES.OK) {
           console.log("All good. Proceed with deposit");
-          console.log(transferStatus);
+          // Set the Transfer Activity Step to next state
+          dispatch(updateTransferState({currentStep: 1}));
+          dispatch(updateTransferStepsContentArray(1, "Confirm the deposit transaction in your wallet"));
           try {
             showFeedbackMessage("Checking approvals and initiating deposit transaction");
             let depositTx = await deposit({
@@ -917,12 +940,18 @@ function App() {
 
             showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
             trackTransactionHash(depositTx.hash);
+            // Deposit Transaction Initiated. Update the Transfer State Steps
+            dispatch(updateTransferStepsContentArray(1, `Waiting for deposit confirmation on ${selectedFromChain.name}`));
             await depositTx.wait(1);
-            showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+            //showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+            dispatch(updateTransferStepsContentArray(2, `Waiting for transfer on ${selectedToChain.name}`));
+            dispatch(updateTransferState({currentStep: 2}));
+
             updateUserBalance(userAddress, selectedToken);
           } catch (error) {
             console.log(error);
             dispatch(updateTransferButtonState(true, "Transfer"));
+            dispatch(updateTransferStepsContentArray(1, "❌ Error while depositing"));
             showErrorMessage("Error while depositing funds");
           }
         } else if(transferStatus.code === RESPONSE_CODES.ALLOWANCE_NOT_GIVEN) {
@@ -1075,6 +1104,17 @@ function App() {
   return (
     <AppWrapper>
       <ReactNotification />
+
+      <TransferActivity 
+        open={openTransferActivity}
+        handleClose={()=>{
+          setOpenTransferActivity(false);
+          // Reset any changed Step Content or Label
+          dispatch(updateTransferStepsContentArray(1, "Confirm the deposit transaction in your wallet"));
+          dispatch(updateTransferState({currentStep: 0}));
+        }}
+        activityName="Transfer"/>
+
       <Header switchButtonText={switchNetworkText} showSwitchNetworkButton={showSwitchNetworkButton}
         onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}/>
 
@@ -1168,7 +1208,7 @@ function App() {
                   variant="outlined" className={classes.formControl} type="number"
                   value={tokenAmount}
                   disabled={amountInputDisabled}
-                  InputProps={{ inputProps: { min: 100, max: 1000 } }}
+                  InputProps={{ inputProps: { min: minDepositAmount, max: maxDepositAmount } }}
                   style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
                 {minDepositAmount !== undefined && maxDepositAmount !== undefined && 
                   <div className="min-max-container">
