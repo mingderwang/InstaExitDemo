@@ -2,10 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { makeStyles, withStyles } from '@material-ui/core/styles';
 import Modal from '@material-ui/core/Modal';
 import clsx from  'clsx';
-import Stepper from '@material-ui/core/Stepper';
-import Step from '@material-ui/core/Step';
-import StepLabel from '@material-ui/core/StepLabel';
-import StepContent from '@material-ui/core/StepContent';
 import VerticalStepper from '../stepper/VerticalStepper';
 import { useSelector, useDispatch } from 'react-redux'
 
@@ -19,14 +15,14 @@ const useStyles = makeStyles((theme) => ({
     },
 
     paper: {
-        width: 400,
+        width: 450,
         backgroundColor: theme.palette.background.paper,
         boxShadow: theme.shadows[5],
         padding: theme.spacing(2, 4, 3),
     },
 
     modalContainer: {
-        width: 400,
+        width: 450,
         top: '50px',
         borderRadius: '20px',
         position: 'relative',
@@ -65,7 +61,7 @@ const useStyles = makeStyles((theme) => ({
     modalHeaderText: {
         display: "flex",
         flexGrow: "1",
-        fontWeight: "500",
+        fontWeight: "600",
         fontSize: "22px",
     },
     modalHeaderClose: {
@@ -85,6 +81,11 @@ const useStyles = makeStyles((theme) => ({
         width: "100%",
         display: "flex",
         justifyContent: "center"
+    },
+    transferActivityStatus: {
+        display: "flex",
+        justifyContent: "center",
+        margin: "10px 0px"
     }
 }));
 
@@ -111,13 +112,12 @@ export default function TransferActivity(props) {
     const selectedToken = useSelector(state => state.tokens.selectedToken);
     const transferStepsLabelArray = useSelector(state => state.transfer.transferStepsLabelArray);
     const transferStepsContentArray = useSelector(state => state.transfer.transferStepsContentArray);
+    const transferActivityStatus = useSelector(state => state.transfer.transferActivityStatus);
     const estimatedAmountToGet = useSelector(state => state.transaction.estimatedAmountToGet);
 
     const [headerText, setHeaderText] = useState("Transfer Activity");
     const [stepperSteps, setStepperSteps] = useState([]);
     const [detailsButtonEnabled, setDetailsButtonEnabled] = useState(false);
-
-    let transferSteps = ['Approve', 'Deposit Funds on Ethereum', 'Release Funds on Polygon', 'Transfer Confirmed'];
 
     useEffect(()=>{
         if(props.activityName === "Transfer") {
@@ -131,7 +131,7 @@ export default function TransferActivity(props) {
 
     useEffect(()=>{
         if(estimatedAmountToGet) {
-            dispatch(updateTransferStepsLabelArray(2, `Transfer of ~ ${estimatedAmountToGet} ${selectedToken.tokenSymbol} on ${selectedToChain.name}`));
+            dispatch(updateTransferStepsLabelArray(2, `Get ~ ${estimatedAmountToGet} ${selectedToken.tokenSymbol} on ${selectedToChain.name}`));
         }
     }, [estimatedAmountToGet]);
 
@@ -162,12 +162,11 @@ export default function TransferActivity(props) {
     };
 
     const showTransferDetails = () => {
-        
+        dispatch(updateTransferState({showTransferDetailsModal: true}))
+        onModalClose();
     }
 
     const getStepContent = (step) => {
-        console.log(transferStepsContentArray);
-
         let content = "";
         if(transferStepsContentArray) {
             content = transferStepsContentArray[step];
@@ -205,6 +204,7 @@ export default function TransferActivity(props) {
                     </div>
                 </div>
                 <div className={clsx(classes.modalBottom, classes.modalRow)}>
+                    <div className={classes.transferActivityStatus}>{transferActivityStatus}</div>
                     <div className={classes.modalFooter}>
                         <DetailsButton 
                         variant="contained"

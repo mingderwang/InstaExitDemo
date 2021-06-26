@@ -22,6 +22,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import Notify from "bnc-notify"
 import AwesomeDebouncePromise from 'awesome-debounce-promise';
 
+
 import ReactNotification from 'react-notifications-component';
 import 'react-notifications-component/dist/theme.css';
 import { store } from 'react-notifications-component';
@@ -50,11 +51,13 @@ import {
   updateTransferState,
   updateTransferStepsContentArray,
   updateTransferStepsLabelArray,
-  updateEstimatedAmountToGet
+  updateEstimatedAmountToGet,
+  updateFromChainProvider, updateToChainProvider
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
 import TransferActivity from "./components/transfer/TransferActivity.";
+import TransferDetails from "./components/transfer/TransferDetails";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -264,6 +267,15 @@ function App() {
   const selectedTokenRawBalance = useSelector(state => state.tokens.selectedTokenRawBalance);
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
+  const fromChainProvider = useSelector(state => state.network.fromChainProvider);
+  const toChainProvider = useSelector(state => state.network.toChainProvider);
+  const fromLPManagerAddress = useSelector(state => state.network.fromLPManagerAddress);
+  const toLPManagerAddress = useSelector(state => state.network.toLPManagerAddress);
+
+  let toLPManager;
+  if(toChainProvider && toLPManagerAddress) {
+    toLPManager = new ethers.Contract(toLPManagerAddress, config.lpManagerABI, toChainProvider);
+  }
   const transactionFee = useSelector(state => state.transaction.transactionFee);
   const transactionTokenCurrency = useSelector(state => state.transaction.tokenCurrency);
   const approveButtonEnabled = useSelector(state => state.transaction.approveButtonEnabled);
@@ -274,7 +286,6 @@ function App() {
 
   const switchNetworkText = useSelector(state => state.network.switchNetworkText);
   const showSwitchNetworkButton = useSelector(state => state.network.showSwitchNetworkButton);
-  const fromLPManagerAddress = useSelector(state => state.network.fromLPManagerAddress);
 
   const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
   const minDepositAmount = useSelector(state => state.tokens.minDeposit);
@@ -282,10 +293,10 @@ function App() {
   const tokenMap = useSelector(state => state.tokens.tokenMap);
 
   const currentTransferStep = useSelector(state => state.transfer.currentStep);
+  const openTransferDetails = useSelector(state => state.transfer.showTransferDetailsModal);
 
   const selectedTokenRef = useRef(selectedToken);
 
-  const preventDefault = (event) => event.preventDefault();
   const [userAddress, setUserAddress] = useState();
   const [hyphen, setHyphen] = useState();
   const [fromChain, setFromChain] = useState(selectedFromChain);
@@ -328,7 +339,7 @@ function App() {
         let biconomyOptions = {
           enable: false
         };
-        console.log(walletChain);
+        
         if(walletChain) {
           if(walletChain.biconomy && walletChain.biconomy.enable && walletChain.biconomy.apiKey) {
             biconomyOptions.enable = true;
@@ -344,28 +355,9 @@ function App() {
           environment: config.getEnv(),
           infiniteApproval: true,
           biconomy: biconomyOptions,
-          onFundsTransfered: (data) => {
-            if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
-              // Exit hash found but transaction is not yet confirmed
-              console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
-              dispatch(updateTransferStepsContentArray(2, `Transacion found. Waiting for confirmation`));
-
-              showFeedbackMessage(<div>
-                Transfer Initiated !!
-                  <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
-              </div>);
-            } else {
-              console.log("Funds transfer successfull");
-              console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
-
-              dispatch(updateTransferState({currentStep: 3}));
-
-              showFeedbackMessage(<div>
-                Cross chain transfer successfull !!
-                  <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
-              </div>, "success");
-            }
-          }
+          // onFundsTransfered: async (data) => {
+            
+          // }
         });
         
         await hyphen.init();
@@ -448,6 +440,26 @@ function App() {
     checkForNegativeAmount(estimatedTokensToGet);
   }, [estimatedTokensToGet])
 
+
+  useEffect(() => {
+    if(selectedFromChain) {
+      let rpcUrl = selectedFromChain.rpcUrl;
+      if(rpcUrl) {
+        let provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        dispatch(updateFromChainProvider(provider));
+      }
+    }
+  }, [selectedFromChain])
+
+  useEffect(() => {
+    if(selectedToChain) {
+      let rpcUrl = selectedToChain.rpcUrl;
+      if(rpcUrl) {
+        let provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        dispatch(updateToChainProvider(provider));
+      }
+    }
+  }, [selectedToChain])
 
   useEffect(() => {
     console.log("Selected token changed", selectedToken)
@@ -898,7 +910,7 @@ function App() {
       let fromChainId = selectedFromChain.chainId;
       let toChainId = selectedToChain.chainId;
 
-      showFeedbackMessage("Initiaiting Transfer");
+      // showFeedbackMessage("Initiaiting Transfer");
       dispatch(updateTransferButtonState(false, "Transfer"));
       let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
 
@@ -927,7 +939,7 @@ function App() {
           dispatch(updateTransferState({currentStep: 1}));
           dispatch(updateTransferStepsContentArray(1, "Confirm the deposit transaction in your wallet"));
           try {
-            showFeedbackMessage("Checking approvals and initiating deposit transaction");
+            // showFeedbackMessage("Checking approvals and initiating deposit transaction");
             let depositTx = await deposit({
               sender: await signer.getAddress(),
               receiver: await signer.getAddress(),
@@ -938,19 +950,43 @@ function App() {
               toChainId: toChainId,
             });
 
-            showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
+            // showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
             trackTransactionHash(depositTx.hash);
+            // Update Transfer State now once the deposit hash is completed
+            dispatch(updateTransferState({
+              fromChaindId: selectedFromChain.chainId,
+              toChainId: selectedToChain.chainId,
+              tokenAddress: selectedToken.address,
+              tokenAmount: selectedTokenAmount,
+              tokenDecimals: selectedToken.decimal,
+              tokenSymbol: selectedToken.tokenSymbol,
+              lpFee: lpFeeAmount,
+              minRecieved: estimatedTokensToGet,
+              transactionFee: transactionFee,
+              transactionFeeCurrency: transactionTokenCurrency
+            }));
+
             // Deposit Transaction Initiated. Update the Transfer State Steps
+            setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(1, `Waiting for deposit confirmation on ${selectedFromChain.name}`));
             await depositTx.wait(1);
+            listenForTransferConfirmation(depositTx.hash, selectedFromChain.chainId);
             //showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+            setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(2, `Waiting for transfer on ${selectedToChain.name}`));
-            dispatch(updateTransferState({currentStep: 2}));
+
+            let date = new Date();
+            let startTime = date.getTime();
+            dispatch(updateTransferState({
+              currentStep: 2,
+              startTime: startTime
+            }));
 
             updateUserBalance(userAddress, selectedToken);
           } catch (error) {
             console.log(error);
             dispatch(updateTransferButtonState(true, "Transfer"));
+            setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(1, "❌ Error while depositing"));
             showErrorMessage("Error while depositing funds");
           }
@@ -976,6 +1012,7 @@ function App() {
           showErrorMessage("Target chain id is not supported yet");
         } else if (transferStatus.code === RESPONSE_CODES.NO_LIQUIDITY) {
           showErrorMessage(`No liquidity available for ${selectedTokenAmount} tokens`);
+          dispatch(updateTransferStepsContentArray(0, `❌ Not enough liquidity on ${selectedToChain.name} for ${selectedTokenAmount} ${selectedToken.tokenSymbol}`));
         } else if (transferStatus.code === RESPONSE_CODES.UNSUPPORTED_TOKEN) {
           showErrorMessage("Requested token is not supported yet");
         } else {
@@ -988,6 +1025,87 @@ function App() {
         showErrorMessage(error.message);
       } else {
         showErrorMessage(`Make sure your wallet is on ${selectedFromChain.name} network`)
+      }
+    }
+  }
+
+  const listenForTransferConfirmation = async (depositHash, chainId) => {
+    if(hyphen) {
+      let intervalId;
+      let checkTransferTransaction = async (hash, networkId) => {
+        const data = await hyphen.checkDepositStatus({
+          depositHash: hash, 
+          fromChainId: networkId
+        });
+        if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
+          // Exit hash found but transaction is not yet confirmed
+          console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+          setOpenTransferActivity(true);
+          dispatch(updateTransferStepsContentArray(2, <div>
+            Transfer Initiated. 
+            <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+          </div>));
+        } else {
+          console.log("Funds transfer successful");
+          console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+
+          let date = new Date();
+          let endTime = date.getTime();
+          dispatch(updateTransferState({
+            endTime: endTime
+          }));
+
+          if(toChainProvider) {
+            let receipt = await toChainProvider.getTransactionReceipt(data.exitHash);
+            if(receipt && receipt.logs) { 
+              receipt.logs.forEach(async (receiptLog) => {
+                if (receiptLog.topics[0] === selectedToChain.assetSentTopicId && toLPManager) {
+                  const data = toLPManager.interface.parseLog(receiptLog);
+                  if (data.args) {
+                    let amount = data.args.amount;
+                    let tokenAddress = data.args.asset;
+                    let recieverAddress = data.args.target;
+                    
+                    if(config.tokensMap) {
+                      let token = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
+                      let tokenDecimal = token.decimal;
+                      amount = parseFloat(amount)/parseFloat(ethers.BigNumber.from(10).pow(tokenDecimal))
+                      if(amount) amount = amount.toFixed(2);
+                    }
+
+                    if(amount) {
+                      dispatch(updateTransferState({
+                        recievedAmount: amount.toString(),
+                        recievedTokenAddress: tokenAddress,
+                        recieverAddress: recieverAddress
+                      }))
+                    }
+                  }
+                }
+              });
+            }
+          }
+          setOpenTransferActivity(true);
+          dispatch(updateTransferState({
+            transferHash: data.exitHash,
+            currentStep: 3,
+            transferActivityStatus: <div>
+              ✅ Transfer successful. 
+              <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+            </div>
+          }));
+
+          // Clear Timer
+          clearInterval(intervalId);
+        }
+      }
+
+      intervalId = setInterval(async () => {
+        checkTransferTransaction(depositHash, chainId);
+      }, config.transferListenerTimerInterval);
+
+      if(intervalId) {
+        console.log("Timer started");
       }
     }
   }
@@ -1107,13 +1225,20 @@ function App() {
 
       <TransferActivity 
         open={openTransferActivity}
-        handleClose={()=>{
+        handleClose={()=> {
           setOpenTransferActivity(false);
           // Reset any changed Step Content or Label
           dispatch(updateTransferStepsContentArray(1, "Confirm the deposit transaction in your wallet"));
-          dispatch(updateTransferState({currentStep: 0}));
+          dispatch(updateTransferState({currentStep: 0, transferActivityStatus: ""}));
         }}
         activityName="Transfer"/>
+      <TransferDetails 
+        open={openTransferDetails}
+        handleClose={()=> {
+          dispatch(updateTransferState({showTransferDetailsModal: false}))
+        }}
+        getExplorerURL={getExplorerURL}
+      />
 
       <Header switchButtonText={switchNetworkText} showSwitchNetworkButton={showSwitchNetworkButton}
         onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}/>

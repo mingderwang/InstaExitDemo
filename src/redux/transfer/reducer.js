@@ -19,15 +19,23 @@ const initialState = {
   tokenSymbol: undefined,
   estimatedTransferTime: undefined,
   transferState: {},
+  transferActivityStatus: "", // Overall status of the Transfer to be shown on TransferActivity Modal Window
   currentState: undefined,
   currentStep: 0,
   lpFee: undefined,
   minRecieved: undefined,
+  recievedAmount: undefined,
+  recievedTokenAddress: undefined,
+  recieverAddress: undefined,
   transactionFee: undefined,
   transactionFeeCurrency: undefined,
   transferStepsLabelArray: transferStepsLabelArray,
   transferStepsContentArray: transferStepsContentArray,
-  savingAmount: undefined
+  savingAmount: undefined,
+  showTransferDetailsModal: false,
+  transferHash: undefined,
+  startTime: undefined,
+  endTime: undefined
 }
 
 const reducer = (state = initialState, action) => {
