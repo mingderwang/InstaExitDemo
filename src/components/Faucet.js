@@ -42,7 +42,8 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         fontSize: "30px",
         alignItems: "center",
-        justifyContent: "center"
+        justifyContent: "center",
+        color: "#fff"
     },
     chainLogoBig: {
         height: "40px",
@@ -51,7 +52,7 @@ const useStyles = makeStyles((theme) => ({
     chainInfoContainer: {
         width: "400px",
         height: "315px",
-        marginTop: "157px",
+        marginTop: "100px",
         padding: "10px"
     },
     faucetBalanceRow: {

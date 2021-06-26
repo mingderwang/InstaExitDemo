@@ -17,11 +17,12 @@ import InfoIcon from '@material-ui/icons/Info';
 import SuccessIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import styled from 'styled-components';
-import BiconomyLogo from './assets/Biconomy-logo.png';
+import BiconomyLogo from './assets/Biconomy-logo-white.svg';
 import Tooltip from '@material-ui/core/Tooltip';
 import Notify from "bnc-notify"
 import AwesomeDebouncePromise from 'awesome-debounce-promise';
-
+import Logo from './assets/hyphen-logo.svg';
+import ArrowIcon from './assets/arrow.svg';
 
 import ReactNotification from 'react-notifications-component';
 import 'react-notifications-component/dist/theme.css';
@@ -78,6 +79,13 @@ let AppWrapper = styled.div`
   flex-direction: column
 `
 
+const IconWrapper = styled.div`
+    display: flex;
+    height: 40px;
+    padding: 0px 5px;
+    align-items: center;
+`
+
 let ethersProvider, signer;
 let contract, contractInterface, contractWithBasicSign;
 
@@ -98,6 +106,10 @@ let explorerURLMap = {
 const useStyles = makeStyles((theme) => ({
   root: {
     minWidth: 275,
+  },
+  logoIcon: {
+    height: "35px",
+    marginRight: "10px"
   },
   arrowBetweenNetworks: {
     marginBottom: "28px",
@@ -142,7 +154,12 @@ const useStyles = makeStyles((theme) => ({
   },
   actionButton: {
     margin: "0px 5px",
-    width: "100%"
+    width: "100%",
+    background: "#615CCD",
+    color: "#fff",
+    '&:hover': {
+      background: "#615CCD",
+   }
   },
   formControlFullWidth: {
     margin: theme.spacing(1),
@@ -214,7 +231,6 @@ const useStyles = makeStyles((theme) => ({
   mainContainer: {
     width: "500px",
     position: "relative",
-    marginTop: "80px"
   },
   centerCardHeader: {
     display: "flex",
@@ -229,7 +245,8 @@ const useStyles = makeStyles((theme) => ({
   poweredByText: {
     display: "flex",
     flexDirection: "column-reverse",
-    paddingBottom: "7px"
+    paddingBottom: "7px",
+    color: "#fff"
   },
   poweredByLogo: {
     height: "40px",
@@ -1260,13 +1277,18 @@ function App() {
         <div className={classes.centerCardHeader}>
           <div className={classes.poweredByText}>Powered By</div> <img src={BiconomyLogo} href="https://biconomy.io" className={classes.poweredByLogo} />
         </div>
-        <Card className={classes.root} variant="outlined">
+        <Card className={classes.root} variant="outlined" style={{borderRadius: "30px"}}>
           <CardContent>
             <div className={classes.cardRow}>
+              <IconWrapper>
+                  <img src={Logo} className={classes.logoIcon}/>
+              </IconWrapper>
+            </div>
+            {/* <div className={classes.cardRow}>
               <div id="feedback-div" className={classes.feedbackMessage}>
                 {feedbackIcon}{feedbackMessage}
               </div>
-            </div>
+            </div> */}
             <div className={classes.cardRow}>
 
               <div className={classes.selectContainer}>
@@ -1291,8 +1313,8 @@ function App() {
                 <div className={classes.chainSubText}>{fromChain.subText}</div>
               </div>
 
-
-              <ArrowForwardIcon className={classes.arrowBetweenNetworks} onClick={flipNetworks}/>
+              <img src={ArrowIcon} alt="=>"  className={classes.arrowBetweenNetworks} onClick={flipNetworks}/>
+              {/* <ArrowForwardIcon className={classes.arrowBetweenNetworks} onClick={flipNetworks}/> */}
 
               <div className={classes.selectContainer}>
                 <FormControl variant="outlined" size="small" className={classes.formControl}>
@@ -1405,13 +1427,13 @@ function App() {
               <FormControl variant="standard" size="medium" className={classes.formControlFullWidth}>
                 {approveButtonVisible && 
                   <Button className={classes.actionButton} onClick={onApprove} 
-                    size="large" variant="contained" color="secondary"
+                    size="large" variant="contained"
                     disabled={!approveButtonEnabled}>
                     {approveButtonText}
                   </Button>
                 }
                 <Button className={classes.actionButton} onClick={onTransfer} 
-                  size="large" variant="contained" color="secondary"
+                  size="large" variant="contained"
                   disabled={!transferButtonEnabled}>
                   {transferButtonText}
                 </Button>

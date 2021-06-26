@@ -22,7 +22,7 @@ const useStyles = makeStyles((theme) => ({
     },
 
     modalContainer: {
-        width: 450,
+        width: 500,
         top: '50px',
         borderRadius: '20px',
         position: 'relative',

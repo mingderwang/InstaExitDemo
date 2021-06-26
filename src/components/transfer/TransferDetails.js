@@ -34,7 +34,7 @@ const useStyles = makeStyles((theme) => ({
     },
 
     modalContainer: {
-        width: 450,
+        width: 500,
         top: '50px',
         borderRadius: '20px',
         position: 'relative',
@@ -170,6 +170,9 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: "row",
         justifyContent: "space-between",
         padding: "5px"
+    },
+    transferDurationText: {
+        color: "#615CCD"
     }
 }));
 
@@ -286,7 +289,7 @@ export default function TransferDetails(props) {
                         </div>
                         {timeForTransfer &&
                             <div className={classes.bodyRow} style={{margin: "40px 0"}}>
-                                Transfer completed in {timeForTransfer}
+                                Transfer completed in <span className={classes.transferDurationText}>{timeForTransfer}</span>
                             </div>
                         }
                     </div>
