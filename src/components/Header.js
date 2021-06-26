@@ -59,7 +59,7 @@ function Header(props) {
     return (
         <HeaderWrapper>
             <IconWrapper className={classes.headerItems, classes.logoText}>
-                <img src={Logo} className={classes.logoIcon}/> Hyphen
+                
             </IconWrapper>
             <RightMenuWrapper className={classes.headerItems}>
                 <SwitchNetworkWrapper >

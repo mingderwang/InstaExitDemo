@@ -1,6 +1,7 @@
 import { UPDATE_SELECTED_FROM_CHAIN, UPDATE_SELECTED_TO_CHAIN,
   UPDATE_SWITCH_NETWORK_TEXT, TOGGLE_SWITCH_NETWORK_DISPALY,
-  UPDATE_LP_MANAGER_ADDRESSES } from './networkTypes'
+  UPDATE_LP_MANAGER_ADDRESSES, UPDATE_TO_CHAIN_PROVIDER,
+  UPDATE_FROM_CHAIN_PROVIDER } from './networkTypes'
 
 export const updateLPManagerAddresses = (fromLPManagerAddress, toLPManagerAddress) => {
   return {
@@ -45,5 +46,19 @@ export const toggleSwitchNetworkDisplay = (open) => {
     payload: {
         open: open
     }
+  }
+}
+
+export const updateFromChainProvider = (provider) => {
+  return {
+    type: UPDATE_FROM_CHAIN_PROVIDER,
+    payload: provider
+  }
+}
+
+export const updateToChainProvider = (provider) => {
+  return {
+    type: UPDATE_TO_CHAIN_PROVIDER,
+    payload: provider
   }
 }

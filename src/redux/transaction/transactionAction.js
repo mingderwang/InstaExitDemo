@@ -1,5 +1,5 @@
 import { UPDATE_TRANSACTION_FEE, UPDATE_TRANSFER_BUTTON_STATE, 
-    UPDATE_APPROVE_BUTTON_STATE } from './transactionTypes'
+    UPDATE_APPROVE_BUTTON_STATE, UPDATE_ESTIMATED_AMOUNT_TO_GET } from './transactionTypes'
 
 export const updateTransactionFee = (transactionFee, tokenCurrency) => {
     return {
@@ -29,5 +29,12 @@ export const updateTransferButtonState = (enabled, text) => {
             enabled,
             text
         }
+    }
+}
+
+export const updateEstimatedAmountToGet = (amount) => {
+    return {
+        type: UPDATE_ESTIMATED_AMOUNT_TO_GET,
+        payload: amount
     }
 }
