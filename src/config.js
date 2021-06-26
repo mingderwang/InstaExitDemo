@@ -31,7 +31,7 @@ let ETHEREUM = {
     assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a"
 }
 let MATIC = { 
-    name: "Polygon (Matic)",
+    name: "Polygon",
     subText: "Polygon Mainnet",
     chainId: 137,
     rpcUrl: "https://rpc-mainnet.matic.network",
