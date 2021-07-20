@@ -233,6 +233,8 @@ export default function TransferDetails(props) {
         if(transferHash && props.getExplorerURL) {
             let url = props.getExplorerURL(transferHash, selectedToChain.chainId);
             window.open(url, '_blank').focus();
+        } else {
+            console.log(`Transfer hash or the explorerURL is not defined. TransferHash: ${transferHash}, ExplorerURL: ${props.getExplorerURL}`)
         }
     }
 

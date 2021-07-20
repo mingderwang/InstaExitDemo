@@ -1049,71 +1049,77 @@ function App() {
   const listenForTransferConfirmation = async (depositHash, chainId) => {
     if(hyphen) {
       let intervalId;
+      let invocationCount = 0;
       let checkTransferTransaction = async (hash, networkId) => {
-        const data = await hyphen.checkDepositStatus({
-          depositHash: hash, 
-          fromChainId: networkId
-        });
-        if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
-          // Exit hash found but transaction is not yet confirmed
-          console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
-          setOpenTransferActivity(true);
-          dispatch(updateTransferStepsContentArray(2, <div>
-            Transfer Initiated. 
-            <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
-          </div>));
-        } else {
-          console.log("Funds transfer successful");
-          console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
-
-          let date = new Date();
-          let endTime = date.getTime();
-          dispatch(updateTransferState({
-            endTime: endTime
-          }));
-
-          if(toChainProvider) {
-            let receipt = await toChainProvider.getTransactionReceipt(data.exitHash);
-            if(receipt && receipt.logs) { 
-              receipt.logs.forEach(async (receiptLog) => {
-                if (receiptLog.topics[0] === selectedToChain.assetSentTopicId && toLPManager) {
-                  const data = toLPManager.interface.parseLog(receiptLog);
-                  if (data.args) {
-                    let amount = data.args.amount;
-                    let tokenAddress = data.args.asset;
-                    let recieverAddress = data.args.target;
-                    
-                    if(config.tokensMap) {
-                      let token = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
-                      let tokenDecimal = token.decimal;
-                      amount = parseFloat(amount)/parseFloat(ethers.BigNumber.from(10).pow(tokenDecimal))
-                      if(amount) amount = amount.toFixed(2);
-                    }
-
-                    if(amount) {
-                      dispatch(updateTransferState({
-                        recievedAmount: amount.toString(),
-                        recievedTokenAddress: tokenAddress,
-                        recieverAddress: recieverAddress
-                      }))
+        if(invocationCount < config.checkTransferReceiptMaxRetryCount) {
+          const data = await hyphen.checkDepositStatus({
+            depositHash: hash, 
+            fromChainId: networkId
+          });
+          if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
+            // Exit hash found but transaction is not yet confirmed
+            console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+            setOpenTransferActivity(true);
+            dispatch(updateTransferStepsContentArray(2, <div>
+              Transfer Initiated. 
+              <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+            </div>));
+          } else if(data.statusCode == 2 && data.exitHash && data.exitHash !== "") {
+            console.log("Funds transfer successful");
+            console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
+            invocationCount +=1 ;
+            let date = new Date();
+            let endTime = date.getTime();
+            dispatch(updateTransferState({
+              endTime: endTime
+            }));
+  
+            if(toChainProvider) {
+              let receipt = await toChainProvider.getTransactionReceipt(data.exitHash);
+              if(receipt && receipt.logs) { 
+                receipt.logs.forEach(async (receiptLog) => {
+                  if (receiptLog.topics[0] === selectedToChain.assetSentTopicId && toLPManager) {
+                    const data = toLPManager.interface.parseLog(receiptLog);
+                    if (data.args) {
+                      let amount = data.args.amount;
+                      let tokenAddress = data.args.asset;
+                      let recieverAddress = data.args.target;
+                      
+                      if(config.tokensMap) {
+                        let token = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
+                        let tokenDecimal = token.decimal;
+                        amount = parseFloat(amount)/parseFloat(ethers.BigNumber.from(10).pow(tokenDecimal))
+                        if(amount) amount = amount.toFixed(2);
+                      }
+  
+                      if(amount) {
+                        // Clear Timer
+                        clearInterval(intervalId);
+                        dispatch(updateTransferState({
+                          recievedAmount: amount.toString(),
+                          recievedTokenAddress: tokenAddress,
+                          recieverAddress: recieverAddress
+                        }))
+                      }
                     }
                   }
-                }
-              });
+                });
+              }
             }
+            setOpenTransferActivity(true);
+            dispatch(updateTransferState({
+              transferHash: data.exitHash,
+              currentStep: 3,
+              transferActivityStatus: <div>
+                ✅ Transfer successful. 
+                <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+              </div>
+            }));
           }
-          setOpenTransferActivity(true);
-          dispatch(updateTransferState({
-            transferHash: data.exitHash,
-            currentStep: 3,
-            transferActivityStatus: <div>
-              ✅ Transfer successful. 
-              <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
-            </div>
-          }));
-
-          // Clear Timer
+        } else {
           clearInterval(intervalId);
+          console.log("Max rertry count exceeded while fetching transaction receipt");
+          showErrorMessage("Max rertry count exceeded while fetching transaction receipt");
         }
       }
 
@@ -1122,7 +1128,7 @@ function App() {
       }, config.transferListenerTimerInterval);
 
       if(intervalId) {
-        console.log("Timer started");
+        console.log(`Timer started to check transfer transaction receipt with interval of ${config.transferListenerTimerInterval/1000} sec`);
       }
     }
   }
@@ -1233,6 +1239,18 @@ function App() {
     } catch (error) {
       console.log(error);
       showErrorMessage("Error while getting tokens from faucet");
+    }
+  }
+
+  const onClickMinAmount = () => {
+    if(minDepositAmount) {
+      handleTokenAmount({target: {value: minDepositAmount}});
+    }
+  }
+
+  const onClickMaxAmount = () => {
+    if(maxDepositAmount) {
+      handleTokenAmount({target: {value: maxDepositAmount}});
     }
   }
 
@@ -1359,8 +1377,8 @@ function App() {
                   style={{ flexGrow: 1 }} onChange={handleTokenAmount} />
                 {minDepositAmount !== undefined && maxDepositAmount !== undefined && 
                   <div className="min-max-container">
-                    <span>Min: {minDepositAmount}</span>
-                    <span>Max: {maxDepositAmount}</span>
+                    <span onClick={onClickMinAmount}>Min: {minDepositAmount}</span>
+                    <span onClick={onClickMaxAmount}>Max: {maxDepositAmount}</span>
                   </div>
                 }
               </div>

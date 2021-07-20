@@ -212,5 +212,5 @@ config.blocknative = {
 };
 
 config.transferListenerTimerInterval = 5000;
-
+config.checkTransferReceiptMaxRetryCount = 5;
 module.exports = { config }
