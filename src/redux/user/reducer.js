@@ -5,7 +5,7 @@ import {
 } from './types';
 
 const initialState = {
-  showUserDetails: true,
+  showUserDetails: false,
   userAddress: undefined
 }
 
