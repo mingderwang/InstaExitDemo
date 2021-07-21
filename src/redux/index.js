@@ -4,7 +4,8 @@ export { updateSupportedTokens, updateSelectedToken, updateTokenAmount,
 
 export { updateSelectedFromChain, updateSelectedToChain, 
     updateSwitchNetworkText, toggleSwitchNetworkDisplay, updateLPManagerAddresses,
-    updateFromChainProvider, updateToChainProvider } from './network/networkActions';
+    updateFromChainProvider, updateToChainProvider, updateSelectedWallet,
+    updateNetworkState } from './network/networkActions';
 
 export { updateTransactionFee, updateApproveButtonState, updateTransferButtonState,
     updateEstimatedAmountToGet } from './transaction/transactionAction';
@@ -12,7 +13,10 @@ export { updateTransactionFee, updateApproveButtonState, updateTransferButtonSta
 export { updateTransferState, updateTransferStatus, updateTransferStepsLabelArray,
     updateCurrentState, updateTransferStepsContentArray } from './transfer/action';
 
+export { updateUserState } from './user/action';
+
 export * from './tokens/tokenTypes'
 export * from './network/networkTypes'
 export * from './transaction/transactionTypes'
 export * from './transfer/types'
+export * from './user/types'

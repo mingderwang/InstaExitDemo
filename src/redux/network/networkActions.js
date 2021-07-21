@@ -1,7 +1,9 @@
 import { UPDATE_SELECTED_FROM_CHAIN, UPDATE_SELECTED_TO_CHAIN,
   UPDATE_SWITCH_NETWORK_TEXT, TOGGLE_SWITCH_NETWORK_DISPALY,
   UPDATE_LP_MANAGER_ADDRESSES, UPDATE_TO_CHAIN_PROVIDER,
-  UPDATE_FROM_CHAIN_PROVIDER } from './networkTypes'
+  UPDATE_FROM_CHAIN_PROVIDER, 
+  UPDATE_SELECTED_WALLET,
+  UPDATE_NETWORK_STATE} from './networkTypes'
 
 export const updateLPManagerAddresses = (fromLPManagerAddress, toLPManagerAddress) => {
   return {
@@ -60,5 +62,19 @@ export const updateToChainProvider = (provider) => {
   return {
     type: UPDATE_TO_CHAIN_PROVIDER,
     payload: provider
+  }
+}
+
+export const updateSelectedWallet = (wallet) => {
+  return {
+    type: UPDATE_SELECTED_WALLET,
+    payload: wallet
+  }
+}
+
+export const updateNetworkState = (currentState) => {
+  return {
+      type: UPDATE_NETWORK_STATE,
+      payload: currentState
   }
 }

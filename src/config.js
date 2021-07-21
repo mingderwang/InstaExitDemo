@@ -8,6 +8,12 @@ let getEnv = () => {
 let config = {};
 config.getEnv = getEnv;
 
+let walletSelect = {
+    wallets : [
+        { walletName: "metamask", preferred: true }
+    ]
+}
+
 let MUMBAI = { 
     name: "Mumbai",
     subText: "Polygon testnet",
@@ -19,7 +25,13 @@ let MUMBAI = {
         enable: true,
         apiKey: "r8N3i0Ukw.bb5dd97d-af25-47cb-9281-2069f1b95ade"
     },
-    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a"
+    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a",
+    onboardConfig : {
+        dappId : process.env.REACT_APP_DAPP_ID,
+        networkId: 80001,
+        networkName: "Polygon testnet",
+        walletSelect
+    }
 }
 let ETHEREUM = { 
     name: "Ethereum",
@@ -28,7 +40,12 @@ let ETHEREUM = {
     rpcUrl: "https://mainnet.infura.io/v3/d126f392798444609246423b06116c77",
     currency: "ETH",
     nativeFaucetURL: "",
-    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a"
+    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a",
+    onboardConfig : {
+        dappId : process.env.REACT_APP_DAPP_ID,
+        networkId: 1,
+        walletSelect
+    }
 }
 let MATIC = { 
     name: "Polygon",
@@ -37,7 +54,13 @@ let MATIC = {
     rpcUrl: "https://rpc-mainnet.matic.network",
     currency: "MATIC",
     nativeFaucetURL: "",
-    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a"
+    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a",
+    onboardConfig : {
+        dappId : process.env.REACT_APP_DAPP_ID,
+        networkId: 137,
+        networkName: "Polygon Mainnet",
+        walletSelect
+    }
 }
 let GOERLI = { 
     name: "Goerli",
@@ -46,7 +69,12 @@ let GOERLI = {
     rpcUrl: "https://goerli.infura.io/v3/d126f392798444609246423b06116c77",
     currency: "Goerli ETH",
     nativeFaucetURL: "https://faucet.goerli.mudit.blog/",
-    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a"
+    assetSentTopicId: "0x640464918ddf9758952d8ac3479003d774e0c1b9640748fbb7630beddc00492a",
+    onboardConfig : {
+        dappId : process.env.REACT_APP_DAPP_ID,
+        networkId: 5,
+        walletSelect
+    }
 }
 let chains;
 
@@ -197,9 +225,9 @@ let hyphenBaseUrl;
 if(getEnv() === PROD_ENVIRONMENT) {
     hyphenBaseUrl = "https://hyphen-api.biconomy.io"
 } else if(getEnv() === TEST_ENVIRONMENT) {
-    hyphenBaseUrl = "https://hyphen-test-api.biconomy.io";
+    hyphenBaseUrl = "http://localhost:3000";
 } else {
-    hyphenBaseUrl = "https://localhost:3000";
+    hyphenBaseUrl = "http://localhost:3000";
 }
 config.hyphen = {
     baseURL : hyphenBaseUrl,
@@ -213,4 +241,9 @@ config.blocknative = {
 
 config.transferListenerTimerInterval = 5000;
 config.checkTransferReceiptMaxRetryCount = 5;
+config.connectWalletText = "Connect Wallet";
+config.selectedWalletKey = "SW";
+config.WALLET = {
+    METAMASK : "MetaMask"
+}
 module.exports = { config }

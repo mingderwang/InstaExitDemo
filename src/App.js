@@ -27,6 +27,7 @@ import ArrowIcon from './assets/arrow.svg';
 import ReactNotification from 'react-notifications-component';
 import 'react-notifications-component/dist/theme.css';
 import { store } from 'react-notifications-component';
+import Onboard from 'bnc-onboard'
 
 import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
@@ -53,7 +54,9 @@ import {
   updateTransferStepsContentArray,
   updateTransferStepsLabelArray,
   updateEstimatedAmountToGet,
-  updateFromChainProvider, updateToChainProvider
+  updateFromChainProvider, updateToChainProvider,
+  updateSelectedWallet, updateNetworkState,
+  updateUserState
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
@@ -119,6 +122,7 @@ const useStyles = makeStyles((theme) => ({
   formControl: {
     margin: theme.spacing(1),
     minWidth: 150,
+    zIndex: "0!important"
   },
   estimationsContainer: {
     background: "#555",
@@ -270,7 +274,7 @@ const useStyles = makeStyles((theme) => ({
 
 const fromChainList = config.supportedChainArrray;
 const toChainList = config.supportedChainArrray;
-let notify;
+let notify, onboard;
 
 const getTokenGasPrice = (tokenAddress, networkId, fetchOptions) => fetch(`${config.hyphen.baseURL}${config.hyphen.getTokenGasPricePath}?tokenAddress=${tokenAddress}&networkId=${networkId}`, fetchOptions)
 const getTokenGasPriceDebounced = AwesomeDebouncePromise(getTokenGasPrice, 500);
@@ -332,97 +336,102 @@ function App() {
   const [amountInputDisabled, setAmountInputDisabled] = useState(true);
   const [openTransferActivity, setOpenTransferActivity] = useState(false);
 
-  useEffect(() => {
-    async function init() {
-      if (
-        typeof window.ethereum !== "undefined" &&
-        window.ethereum.isMetaMask
-      ) {
-        // Ethereum user detected. You can now use the provider.
-        const provider = window["ethereum"];
-        await provider.enable();
-        ethersProvider = new ethers.providers.Web3Provider(provider, "any");
+  async function init(provider) {
+    if (provider) {
+      dispatch(updateTransferButtonState(false, "Give wallet approval"));
+      console.log("Enable wallet to give permission to use the address");
+      await provider.enable();
+      ethersProvider = new ethers.providers.Web3Provider(provider, "any");
+      
+      console.log("Getting current network from wallet");
+      let network = await ethersProvider.getNetwork();
+      setWalletChainId(network.chainId);
+      
+      let walletChain = config.chainIdMap[network.chainId];
 
-        let network = await ethersProvider.getNetwork();
-        setWalletChainId(network.chainId);
-        
-        let walletChain = config.chainIdMap[network.chainId];
+      if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
+        onFromChainSelected({target: {value: network.chainId}});
 
-        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
-          onFromChainSelected({target: {value: network.chainId}});
+      console.log("Initializing blocknative notify");
+      initBlocknativeNotify(network);
 
-        initBlocknativeNotify(network);
-
-        let biconomyOptions = {
-          enable: false
-        };
-        
-        if(walletChain) {
-          if(walletChain.biconomy && walletChain.biconomy.enable && walletChain.biconomy.apiKey) {
-            biconomyOptions.enable = true;
-            biconomyOptions.debug = true;
-            biconomyOptions.apiKey = walletChain.biconomy.apiKey
-          } else {
-            console.log(`Biconomy is not enabled for ${walletChain.name}`);
-          }
+      let biconomyOptions = {
+        enable: false
+      };
+      
+      if(walletChain) {
+        if(walletChain.biconomy && walletChain.biconomy.enable && walletChain.biconomy.apiKey) {
+          biconomyOptions.enable = true;
+          biconomyOptions.debug = true;
+          biconomyOptions.apiKey = walletChain.biconomy.apiKey
+        } else {
+          console.log(`Biconomy is not enabled for ${walletChain.name}`);
         }
+      }
 
-        let hyphen = new Hyphen(provider, {
-          debug: true,
-          environment: config.getEnv(),
-          infiniteApproval: true,
-          biconomy: biconomyOptions,
-          // onFundsTransfered: async (data) => {
-            
+      dispatch(updateTransferButtonState(false, "Initializing Hyphen"));
+      let hyphen = new Hyphen(provider, {
+        debug: true,
+        environment: config.getEnv(),
+        infiniteApproval: true,
+        biconomy: biconomyOptions,
+        // onFundsTransfered: async (data) => {
+          
           // }
         });
-        
-        await hyphen.init();
-        
-        signer = ethersProvider.getSigner();
-        let userAddress = await signer.getAddress();
-        if (userAddress) {
-          setUserAddress(userAddress);
-        }
-
-        // updateFaucetBalance();
-        setHyphen(hyphen);
-        
-        ethersProvider.on("network", (newNetwork, oldNetwork) => {
-          // When a Provider makes its initial connection, it emits a "network"
-          // event with a null oldNetwork along with the newNetwork. So, if the
-          // oldNetwork exists, it represents a changing network
-          if (oldNetwork) {
-              window.location.reload();
-          }
-        });
-
-        // try {
-        //   ethersProvider.on("block", (blockNumber) => {
-        //      updateFaucetBalance();
-        //   });
-        // } catch (error) {
-        //   console.log(error);
-        // }
-
-        // Hanlde user address change
-        if(provider.on) {          
-          provider.on('accountsChanged', function (accounts) {
-            console.log(`Address changed EVENT`);
-            console.log(`New account info`, accounts);
-
-            if(accounts && accounts.length > 0) {
-              let newUserAddress = accounts[0];
-              if (newUserAddress) {
-                setUserAddress(newUserAddress);
-              }
-            }
-          })
-        }
-      } else {
-        showErrorMessage("Metamask not installed");
+      
+      signer = ethersProvider.getSigner();
+      let userAddress = await signer.getAddress();
+      if (userAddress) {
+        setUserAddress(userAddress);
       }
+      
+      console.log("Initializing Hyphen");
+      await hyphen.init();
+      console.log("Hyphen initialized");
+
+
+      // updateFaucetBalance();
+      setHyphen(hyphen);
+      
+      ethersProvider.on("network", (newNetwork, oldNetwork) => {
+        // When a Provider makes its initial connection, it emits a "network"
+        // event with a null oldNetwork along with the newNetwork. So, if the
+        // oldNetwork exists, it represents a changing network
+        if (oldNetwork) {
+            window.location.reload();
+        }
+      });
+
+      dispatch(updateTransferButtonState(false, "Enter an amount"));
+      // try {
+      //   ethersProvider.on("block", (blockNumber) => {
+      //      updateFaucetBalance();
+      //   });
+      // } catch (error) {
+      //   console.log(error);
+      // }
+
+      // Hanlde user address change
+      if(provider.on) {          
+        provider.on('accountsChanged', function (accounts) {
+          console.log(`Address changed EVENT`);
+          console.log(`New account info`, accounts);
+
+          if(accounts && accounts.length > 0) {
+            let newUserAddress = accounts[0];
+            if (newUserAddress) {
+              setUserAddress(newUserAddress);
+            }
+          }
+        })
+      }
+    } else {
+      console.log("provider is not defined");
     }
+  }
+
+  useEffect(() => {
     try {
       init();
     } catch(error) {
@@ -453,6 +462,32 @@ function App() {
     }
   }
 
+  const updateWallet = (walletName) => {
+    if(walletName) {
+      dispatch(updateSelectedWallet(walletName));
+      console.log(walletName);
+      localStorage.setItem(config.selectedWalletKey, walletName);
+    }
+  }
+
+  const connectToLastSelectedWallet = () => {
+    if(localStorage) {
+      let lastSelectedWallet = localStorage.getItem(config.selectedWalletKey);
+      if(lastSelectedWallet) {
+        switch(lastSelectedWallet) {
+          case config.WALLET.METAMASK:
+            if (window && typeof window.ethereum !== "undefined" &&
+              window.ethereum.isMetaMask) {
+                let _provider = window["ethereum"];
+                init(_provider);
+                updateWallet(lastSelectedWallet);
+            }
+            break;
+        }
+      }
+    }
+  }
+
   useEffect(() => {
     checkForNegativeAmount(estimatedTokensToGet);
   }, [estimatedTokensToGet])
@@ -460,6 +495,23 @@ function App() {
 
   useEffect(() => {
     if(selectedFromChain) {
+
+      let initOnboard = async () => {
+        // Initialize Onboard
+        onboard = Onboard({
+          ...selectedFromChain.onboardConfig,
+          hideBranding: true,
+          subscriptions: {
+            wallet: wallet => {
+               init(wallet.provider);
+               updateWallet(wallet.name);
+            }
+          }
+        });
+      }
+
+      initOnboard();
+      connectToLastSelectedWallet();
       let rpcUrl = selectedFromChain.rpcUrl;
       if(rpcUrl) {
         let provider = new ethers.providers.JsonRpcProvider(rpcUrl);
@@ -481,6 +533,10 @@ function App() {
   useEffect(() => {
     console.log("Selected token changed", selectedToken)
     selectedTokenRef.current = selectedToken;
+    if(userAddress) {
+      dispatch(updateUserState({userAddress: userAddress.toLowerCase()}));
+    }
+
     if (selectedToken !== undefined && selectedToken.address && signer && ethersProvider && userAddress) {
       dispatch(updateSelectedTokenBalance(undefined, undefined));
       dispatch(updateMinDeposit(undefined));
@@ -496,6 +552,15 @@ function App() {
     calculateTransactionFee(selectedTokenAmount);
   }, [selectedTokenBalance])
 
+  const onClickConnectWallet = async () => {
+    if(onboard) {
+      let isWalletSelected = await onboard.walletSelect();
+      if(isWalletSelected) {
+        await onboard.walletCheck();
+      }
+    }
+  }
+  
   const updateUserBalance = async (userAddress, selectedToken) => {
     let status = await checkNetwork();
     if (status) {
@@ -1276,7 +1341,8 @@ function App() {
       />
 
       <Header switchButtonText={switchNetworkText} showSwitchNetworkButton={showSwitchNetworkButton}
-        onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}/>
+        onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}
+        connectWalletText={config.connectWalletText} connectWallet={onClickConnectWallet}/>
 
       <div className="App">
         { (selectedFromChain.name === "Mumbai" || selectedFromChain.name === "Goerli") &&
