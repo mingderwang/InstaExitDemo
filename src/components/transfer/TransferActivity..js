@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { makeStyles, withStyles } from '@material-ui/core/styles';
-import Modal from '@material-ui/core/Modal';
-import clsx from  'clsx';
+
 import VerticalStepper from '../stepper/VerticalStepper';
 import { useSelector, useDispatch } from 'react-redux'
+import HyphenModal from '../HyphenModal';
 
 import { updateTransferState,
     updateTransferStepsLabelArray } from '../../redux';
@@ -181,56 +181,37 @@ export default function TransferActivity(props) {
         }
     }
 
-    let body = (
-        <div className={classes.modalContainer}>
-            <div className={classes.modalContent}>
-                <div className={clsx(classes.modalTop, classes.modalRow)}>
-                    <div className={classes.modalHeader}>
-                        <div className={classes.modalHeaderText}>
-                            {headerText}
-                        </div>
-                        <div className={classes.modalHeaderClose} onClick={onModalClose}>
-                            X
-                        </div>
-                    </div>
-                    <div className={classes.modalBody}>
-                        <VerticalStepper
-                            steps={stepperSteps}
-                            activeStep={currentStep}
-                            handleNext={handleNext}
-                            handleBack={handleBack}
-                            handleReset={handleReset}
-                            getStepContent={getStepContent}/>
-                    </div>
-                </div>
-                <div className={clsx(classes.modalBottom, classes.modalRow)}>
-                    <div className={classes.transferActivityStatus}>{transferActivityStatus}</div>
-                    <div className={classes.modalFooter}>
-                        <DetailsButton 
-                        variant="contained"
-                        onClick={showTransferDetails}
-                        disabled={!detailsButtonEnabled}
-                        classes={{ disabled: classes.disabledButton }}>
-                                See Details
-                        </DetailsButton>
-                    </div>
-                </div>
+    let topContent = (
+        <VerticalStepper
+            steps={stepperSteps}
+            activeStep={currentStep}
+            handleNext={handleNext}
+            handleBack={handleBack}
+            handleReset={handleReset}
+            getStepContent={getStepContent}/>
+    );
+
+    let bottomContent = (
+        <div>
+            <div className={classes.transferActivityStatus}>{transferActivityStatus}</div>
+            <div className={classes.modalFooter}>
+                <DetailsButton 
+                variant="contained"
+                onClick={showTransferDetails}
+                disabled={!detailsButtonEnabled}
+                classes={{ disabled: classes.disabledButton }}>
+                        See Details
+                </DetailsButton>
             </div>
         </div>
     );
 
     return (
-    <div>
-        <Modal
-        disableEnforceFocus
-        disableAutoFocus
-        open={props.open}
-        onClose={onModalClose}
-        aria-labelledby="simple-modal-title"
-        aria-describedby="simple-modal-description"
-        >
-            {body}
-        </Modal>
-    </div>
+       <HyphenModal 
+            topContent={topContent}
+            bottomContent={bottomContent}
+            headerText={headerText}
+            open={props.open}
+            onModalClose={onModalClose}/>
     );
 }

@@ -13,7 +13,7 @@ const initialState = {
     approveButtonVisible: false,
     approveButtonText: "Approve",
     transferButtonEnabled: false,
-    transferButtonText: "Enter an amount"
+    transferButtonText: "Please connect your wallet"
 }
 
 const reducer = (state = initialState, action) => {
