@@ -18,6 +18,7 @@ import ArrowIcon from '../../assets/arrow.svg';
 import { config } from '../../config';
 import { borderColor } from '@material-ui/system';
 import { updateTransferState } from '../../redux';
+import CachedIcon from '@material-ui/icons/Cached';
 
 const useStylesBootstrap = makeStyles((theme) => ({
     arrow: {
@@ -108,7 +109,13 @@ const useStyles = makeStyles((theme) => ({
         fontWeight: "bold"
     },
     recentTransactionsHeader: {
-        marginBottom: "10px"
+        marginBottom: "10px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+    },
+    reloadButton: {
+        color: cssConfig.theme.dark.secondaryBackground
     },
     historyRow: {
         display: "flex",
@@ -152,7 +159,7 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "center"
+        justifyContent: "space-between"
     },
     historyDetailsButton: {
         fontSize: "12px",
@@ -161,8 +168,7 @@ const useStyles = makeStyles((theme) => ({
         borderColor: cssConfig.theme.dark.primaryTextColor,
         padding: "3px 10px",
         height: "18px",
-        cursor: "pointer",
-        marginLeft: "50px"
+        cursor: "pointer"
     }
 }));
 
@@ -188,80 +194,81 @@ export default function UserDetails(props) {
     const [transactionHistory, setTransactionHistory] = useState();
     const [emptyTransactionHistoryMessage, setEmptyTransactionHistoryMessage] = useState("Fetching transaction history ...");
 
-    useEffect(()=>{
-        async function fetchTransactions() {
-            let graphClient = getGraphClient(selectedFromChain.chainId);
-            if(userAddress && graphClient, showUserDetails) {
-                try {
-                    let _transactionHistory = []
-                    let transactions = await getUserDepositTransactions(userAddress, graphClient);
-                    if(transactions && transactions.length > 0) {
-                        for(let index=0; index < transactions.length; index++) {
-                            let curTransaction = transactions[index];
-                            let tokenAddress = curTransaction.tokenAddress;
-                            let startTimestamp = curTransaction.timestamp;
-                            let tokenSymbol;
-                            let amount;
-                            if(tokenAddress && selectedFromChain && selectedFromChain.chainId) {
-                                let {formattedAmount, symbol} = getTokenInfo(curTransaction.amount, tokenAddress, selectedFromChain.chainId);
-                                amount = formattedAmount;
-                                tokenSymbol = symbol;
-                            }
-                            let toChainId = curTransaction.toChainId;
-                            let toChainLabel = toChainId;
-                            if(toChainId && config.chainIdMap[toChainId]) {
-                                toChainLabel = config.chainIdMap[toChainId].name;
-                            }
-                            let txn = {};
-
-                            let transferInfo = await getTransferHash(curTransaction.id, toChainId);
-                            if(transferInfo && transferInfo.id) {
-                                let amountReceived = transferInfo.transferredAmount;
-                                let receivedTokenSymbol;
-                                if(amountReceived) {
-                                    let {formattedAmount, symbol} = getTokenInfo(amountReceived, transferInfo.tokenAddress.toLowerCase(), toChainId);
-                                    amountReceived = formattedAmount;
-                                    receivedTokenSymbol = symbol;
-                                }
-                                txn.transferHash = transferInfo.id;
-                                txn.toChainId = toChainId;
-                                let rawLpFee = transferInfo.FeeEarned;
-                                let lpFee;
-                                if(rawLpFee) {
-                                    let {formattedAmount} = getTokenInfo(rawLpFee, transferInfo.tokenAddress.toLowerCase(), toChainId);
-                                    lpFee = formattedAmount;
-                                }
-                                txn.lpFee = lpFee;
-                                txn.amountReceived = amountReceived;
-                                txn.receivedTokenSymbol = receivedTokenSymbol;
-                                txn.receivedTokenAddress = transferInfo.tokenAddress;
-                                txn.endTimestamp = transferInfo.timestamp;
-                            }
-
-                            txn.amount = amount;
-                            txn.depositHash = curTransaction.id;
-                            txn.tokenSymbol = tokenSymbol;
-                            txn.fromChainLabel = selectedFromChain.name;
-                            txn.fromChainId = selectedFromChain.chainId;
-                            txn.toChainLabel = toChainLabel;
-                            txn.receiver = curTransaction.receiver;
-                            txn.startTimestamp = startTimestamp;
-                            _transactionHistory.push(txn);
+    async function fetchTransactions() {
+        let graphClient = getGraphClient(selectedFromChain.chainId);
+        if(userAddress && graphClient, showUserDetails) {
+            try {
+                let _transactionHistory = []
+                let transactions = await getUserDepositTransactions(userAddress, graphClient);
+                if(transactions && transactions.length > 0) {
+                    for(let index=0; index < transactions.length; index++) {
+                        let curTransaction = transactions[index];
+                        let tokenAddress = curTransaction.tokenAddress;
+                        let startTimestamp = curTransaction.timestamp;
+                        let tokenSymbol;
+                        let amount;
+                        if(tokenAddress && selectedFromChain && selectedFromChain.chainId) {
+                            let {formattedAmount, symbol} = getTokenInfo(curTransaction.amount, tokenAddress, selectedFromChain.chainId);
+                            amount = formattedAmount;
+                            tokenSymbol = symbol;
                         }
+                        let toChainId = curTransaction.toChainId;
+                        let toChainLabel = toChainId;
+                        if(toChainId && config.chainIdMap[toChainId]) {
+                            toChainLabel = config.chainIdMap[toChainId].name;
+                        }
+                        let txn = {};
+
+                        let transferInfo = await getTransferHash(curTransaction.id, toChainId);
+                        if(transferInfo && transferInfo.id) {
+                            let amountReceived = transferInfo.transferredAmount;
+                            let receivedTokenSymbol;
+                            if(amountReceived) {
+                                let {formattedAmount, symbol} = getTokenInfo(amountReceived, transferInfo.tokenAddress.toLowerCase(), toChainId);
+                                amountReceived = formattedAmount;
+                                receivedTokenSymbol = symbol;
+                            }
+                            txn.transferHash = transferInfo.id;
+                            txn.toChainId = toChainId;
+                            let rawLpFee = transferInfo.FeeEarned;
+                            let lpFee;
+                            if(rawLpFee) {
+                                let {formattedAmount} = getTokenInfo(rawLpFee, transferInfo.tokenAddress.toLowerCase(), toChainId);
+                                lpFee = formattedAmount;
+                            }
+                            txn.lpFee = lpFee;
+                            txn.amountReceived = amountReceived;
+                            txn.receivedTokenSymbol = receivedTokenSymbol;
+                            txn.receivedTokenAddress = transferInfo.tokenAddress;
+                            txn.endTimestamp = transferInfo.timestamp;
+                        }
+
+                        txn.amount = amount;
+                        txn.depositHash = curTransaction.id;
+                        txn.tokenSymbol = tokenSymbol;
+                        txn.fromChainLabel = selectedFromChain.name;
+                        txn.fromChainId = selectedFromChain.chainId;
+                        txn.toChainLabel = toChainLabel;
+                        txn.receiver = curTransaction.receiver;
+                        txn.startTimestamp = startTimestamp;
+                        _transactionHistory.push(txn);
                     }
-                    if(_transactionHistory.length == 0) {
-                        setEmptyTransactionHistoryMessage("No Transactions Found");
-                    }
-                    console.log(_transactionHistory);
-                    setTransactionHistory(_transactionHistory);
-                } catch(error) {
-                    console.error("Could not get user transactions");
-                    console.error(error);
-                    setTransactionHistory([]);
+                }
+                if(_transactionHistory.length == 0) {
                     setEmptyTransactionHistoryMessage("No Transactions Found");
                 }
+                console.log(_transactionHistory);
+                setTransactionHistory(_transactionHistory);
+            } catch(error) {
+                console.error("Could not get user transactions");
+                console.error(error);
+                setTransactionHistory([]);
+                setEmptyTransactionHistoryMessage("No Transactions Found");
             }
         }
+    }
+
+    useEffect(()=>{
         setTransactionHistory();
         fetchTransactions();
     }, [userAddress, showUserDetails])
@@ -303,6 +310,7 @@ export default function UserDetails(props) {
                         }
                       `)
                     });
+                    
                     if(data.data && data.data.fundsDepositeds) {
                         transactions = data.data.fundsDepositeds;
                     }
@@ -323,7 +331,9 @@ export default function UserDetails(props) {
             if(chain && chain.graphURL) {
                 client = new ApolloClient({
                     uri: chain.graphURL,
-                    cache: new InMemoryCache()
+                    cache: new InMemoryCache({
+                        fetchPolicy: "no-cache"
+                    })
                 });
                 graphClientMap[chainId] = client;
             }
@@ -409,6 +419,14 @@ export default function UserDetails(props) {
         }
     }
 
+    let reloadTransactionHistory = (chainId) => {
+        if(graphClientMap) {
+            setTransactionHistory([]);
+            graphClientMap[chainId] = undefined;
+            fetchTransactions();
+        }
+    }
+
     let topContent = (
         <div>
             <div className={classes.userDetailsContainer} >
@@ -460,7 +478,15 @@ export default function UserDetails(props) {
         <div>
             <div className={classes.recentTransactionsContainer}>
                 <div className={classes.recentTransactionsHeader}>
-                    Recent Transactions (Top 5)
+                    Recent Transactions (Top 5) 
+                    {transactionHistory &&
+                        <Button 
+                            className={classes.reloadButton}
+                            onClick={()=>{reloadTransactionHistory(selectedFromChain.chainId)}}
+                            startIcon={<CachedIcon />}>
+                            reload
+                        </Button>
+                    }
                 </div>
                 <div className={classes.recentTransactionsBody}>
                     {transactionHistory && transactionHistory.length > 0 &&

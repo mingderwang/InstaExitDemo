@@ -1026,7 +1026,7 @@ function App() {
             trackTransactionHash(depositTx.hash);
             // Update Transfer State now once the deposit hash is completed
             dispatch(updateTransferState({
-              fromChaindId: selectedFromChain.chainId,
+              fromChainId: selectedFromChain.chainId,
               toChainId: selectedToChain.chainId,
               tokenAddress: selectedToken.address,
               tokenAmount: selectedTokenAmount,
