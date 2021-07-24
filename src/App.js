@@ -99,13 +99,6 @@ let chainLogoMap = {
   1: EthereumLogo
 }
 
-let explorerURLMap = {
-  80001: "https://explorer-mumbai.maticvigil.com/tx/",
-  137: "https://polygonscan.com/tx/",
-  5: "https://goerli.etherscan.io/tx/",
-  1: "https://etherscan.io/tx/"
-}
-
 const useStyles = makeStyles((theme) => ({
   root: {
     minWidth: 275,
@@ -292,6 +285,7 @@ function App() {
   const toChainProvider = useSelector(state => state.network.toChainProvider);
   const fromLPManagerAddress = useSelector(state => state.network.fromLPManagerAddress);
   const toLPManagerAddress = useSelector(state => state.network.toLPManagerAddress);
+  const selectedWalletFromStore = useSelector(state => state.network.selectedWallet);
 
   let toLPManager;
   if(toChainProvider && toLPManagerAddress) {
@@ -433,7 +427,7 @@ function App() {
 
   useEffect(() => {
     try {
-      init();
+      // init();
     } catch(error) {
       console.log(error);
       showErrorMessage("Error while initiazing the App");
@@ -473,7 +467,7 @@ function App() {
   const connectToLastSelectedWallet = () => {
     if(localStorage) {
       let lastSelectedWallet = localStorage.getItem(config.selectedWalletKey);
-      if(lastSelectedWallet) {
+      if(lastSelectedWallet && !selectedWalletFromStore) {
         switch(lastSelectedWallet) {
           case config.WALLET.METAMASK:
             if (window && typeof window.ethereum !== "undefined" &&
@@ -699,10 +693,6 @@ function App() {
       console.error("config is not defined");
       showErrorMessage("App is not properly initialised");
     }
-  }
-
-  const getExplorerURL = (hash, chainId) => {
-    return `${explorerURLMap[chainId]}${hash}`;
   }
 
   const onFromChainSelected = (event) => {
@@ -1127,7 +1117,7 @@ function App() {
             setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(2, <div>
               Transfer Initiated. 
-              <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+              <a className={classes.exitHashLink} target="_blank" href={config.getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
             </div>));
           } else if(data.statusCode == 2 && data.exitHash && data.exitHash !== "") {
             console.log("Funds transfer successful");
@@ -1146,7 +1136,7 @@ function App() {
                   if (receiptLog.topics[0] === selectedToChain.assetSentTopicId && toLPManager) {
                     const data = toLPManager.interface.parseLog(receiptLog);
                     if (data.args) {
-                      let amount = data.args.amount;
+                      let amount = data.args.transferredAmount;
                       let tokenAddress = data.args.asset;
                       let recieverAddress = data.args.target;
                       
@@ -1177,7 +1167,7 @@ function App() {
               currentStep: 3,
               transferActivityStatus: <div>
                 ✅ Transfer successful. 
-                <a className={classes.exitHashLink} target="_blank" href={getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+                <a className={classes.exitHashLink} target="_blank" href={config.getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
               </div>
             }));
           }
@@ -1337,12 +1327,13 @@ function App() {
         handleClose={()=> {
           dispatch(updateTransferState({showTransferDetailsModal: false}))
         }}
-        getExplorerURL={getExplorerURL}
+        getExplorerURL={config.getExplorerURL}
       />
 
       <Header switchButtonText={switchNetworkText} showSwitchNetworkButton={showSwitchNetworkButton}
         onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}
-        connectWalletText={config.connectWalletText} connectWallet={onClickConnectWallet}/>
+        connectWalletText={config.connectWalletText} connectWallet={onClickConnectWallet}
+        onClickWalletChange={onClickConnectWallet}/>
 
       <div className="App">
         { (selectedFromChain.name === "Mumbai" || selectedFromChain.name === "Goerli") &&

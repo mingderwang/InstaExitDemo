@@ -102,7 +102,7 @@ function Header(props) {
     
     return (
         <HeaderWrapper>
-            <UserDetails />
+            <UserDetails onClickWalletChange={props.onClickWalletChange}/>
             <IconWrapper className={classes.headerItems, classes.logoText}>
                 
             </IconWrapper>

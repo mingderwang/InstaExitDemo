@@ -7,7 +7,7 @@ import { updateTransferState,
     updateTransferStepsLabelArray } from '../../redux';
 import { Button } from '@material-ui/core';
 import ArrowIcon from '../../assets/arrow.svg';
-
+import { config } from '../../config';
 import HyphenModal from '../HyphenModal';
 let MaticLogo = require("../../assets/polygon-matic-logo.png");
 let EthereumLogo = require("../../assets/Ethereum.png");
@@ -110,6 +110,11 @@ const useStyles = makeStyles((theme) => ({
     },
     transferDurationText: {
         color: "#615CCD"
+    },
+    modalFooter: {
+        width: "100%",
+        display: "flex",
+        justifyContent: "center"
     }
 }));
 
@@ -128,14 +133,20 @@ export default function TransferDetails(props) {
     const classes = useStyles();
     const dispatch = useDispatch();
 
-    const transferState = useSelector(state => state.transfer);
-    const selectedFromChain = useSelector(state => state.network.selectedFromChain);
-    const selectedToChain = useSelector(state => state.network.selectedToChain);
-    const selectedTokenAmount = useSelector(state => state.tokens.tokenAmount);
-    const selectedToken = useSelector(state => state.tokens.selectedToken);
-    const transferStepsLabelArray = useSelector(state => state.transfer.transferStepsLabelArray);
-    const transferStepsContentArray = useSelector(state => state.transfer.transferStepsContentArray);
-    const estimatedAmountToGet = useSelector(state => state.transfer.estimatedAmountToGet);
+    // const transferState = useSelector(state => state.transfer);
+    // const selectedFromChain = useSelector(state => state.network.selectedFromChain);
+    // const selectedToChain = useSelector(state => state.network.selectedToChain);
+    // const selectedTokenAmount = useSelector(state => state.transfer.tokenAmount);
+    // const selectedToken = useSelector(state => state.tokens.selectedToken);
+    const tokenSymbol = useSelector(state => state.transfer.tokenSymbol);
+    const fromChainId = useSelector(state => state.transfer.fromChainId);
+    let selectedFromChain;
+    if(fromChainId) selectedFromChain = config.chainIdMap[fromChainId];
+
+    const toChainId = useSelector(state => state.transfer.toChainId);
+    let selectedToChain;
+    if(toChainId) selectedToChain = config.chainIdMap[toChainId];
+
     const recievedAmount = useSelector(state => state.transfer.recievedAmount);
     const lpFee = useSelector(state => state.transfer.lpFee);
     const tokenAmount = useSelector(state => state.transfer.tokenAmount);
@@ -158,17 +169,23 @@ export default function TransferDetails(props) {
 
     useEffect(()=>{
         if(props.activityName === "Transfer") {
-            if(selectedToken && selectedToken.tokenSymbol && selectedTokenAmount 
+            if(tokenSymbol && tokenAmount 
                 && selectedFromChain && selectedFromChain.name) {
-                dispatch(updateTransferStepsLabelArray(1, `Deposit ${selectedTokenAmount} ${selectedToken.tokenSymbol} on ${selectedFromChain.name}`));
+                dispatch(updateTransferStepsLabelArray(1, `Deposit ${tokenAmount} ${tokenSymbol} on ${selectedFromChain.name}`));
 
             }
         }
-    }, [selectedTokenAmount, selectedToken, selectedFromChain]);
+    }, [tokenAmount, tokenSymbol, selectedFromChain]);
 
+    useEffect(()=>{
+        if(transferHash) {
+            setDetailsButtonEnabled(true);
+        }
+    }, [transferHash]);
+    
     const openExplorer = () => {
         if(transferHash && props.getExplorerURL) {
-            let url = props.getExplorerURL(transferHash, selectedToChain.chainId);
+            let url = props.getExplorerURL(transferHash, toChainId);
             window.open(url, '_blank').focus();
         } else {
             console.log(`Transfer hash or the explorerURL is not defined. TransferHash: ${transferHash}, ExplorerURL: ${props.getExplorerURL}`)
@@ -188,14 +205,16 @@ export default function TransferDetails(props) {
                 <div className={classes.detailsContainer}>
                     <div className={classes.networkDetailsContainer}>
                         <div className={classes.chainDirectionLabel}>FROM</div>
-                        <div className={classes.networkDetails}>
-                            <img src={chainLogoMap[selectedFromChain.chainId]} className={classes.chainLogo} />
-                            <span className={classes.networkName}>{selectedFromChain.name}</span>
-                        </div>
+                        {selectedFromChain && 
+                            <div className={classes.networkDetails}>
+                                    <img src={chainLogoMap[selectedFromChain.chainId]} className={classes.chainLogo} />
+                                    <span className={classes.networkName}>{selectedFromChain.name}</span>
+                            </div>
+                        }
                     </div>
                     <div className={classes.amountDetails}>
                         <div className={classes.amount}>{tokenAmount}</div>
-                        <div className={classes.tokenName}>{selectedToken.tokenSymbol}</div>
+                        <div className={classes.tokenName}>{tokenSymbol}</div>
                     </div>
                 </div>
                 <div className={classes.arrowContainer}>
@@ -204,14 +223,16 @@ export default function TransferDetails(props) {
                 <div className={classes.detailsContainer}>
                     <div className={classes.networkDetailsContainer}>
                         <div className={classes.chainDirectionLabel}>TO</div>
-                        <div className={classes.networkDetails}>
-                            <img src={chainLogoMap[selectedToChain.chainId]} className={classes.chainLogo} />
-                            <span className={classes.networkName}>{selectedToChain.name}</span>
-                        </div>
+                        {selectedToChain && 
+                            <div className={classes.networkDetails}>
+                                <img src={chainLogoMap[selectedToChain.chainId]} className={classes.chainLogo} />
+                                <span className={classes.networkName}>{selectedToChain.name}</span>
+                            </div>
+                        }
                     </div>
                     <div className={classes.amountDetails}>
                         <div className={classes.amount}>{recievedAmount}</div>
-                        <div className={classes.tokenName}>{selectedToken.tokenSymbol}</div>
+                        <div className={classes.tokenName}>{tokenSymbol}</div>
                     </div>
                 </div>
             </div>
@@ -231,7 +252,7 @@ export default function TransferDetails(props) {
                         Amount Deposited
                     </div>    
                     <div className={classes.feeDetailValue}>
-                        {tokenAmount} {selectedToken.tokenSymbol}
+                        {tokenAmount} {tokenSymbol}
                     </div>
                 </div>
                 <div className={classes.feeDetailsRow}>
@@ -239,7 +260,7 @@ export default function TransferDetails(props) {
                         Amount Recieved
                     </div>    
                     <div className={classes.feeDetailValue}>
-                        {recievedAmount} {selectedToken.tokenSymbol}
+                        {recievedAmount} {tokenSymbol}
                     </div>
                 </div>
                 <div className={classes.feeDetailsRow}>
@@ -247,7 +268,7 @@ export default function TransferDetails(props) {
                         Liquidity Provider Fee
                     </div>    
                     <div className={classes.feeDetailValue}>
-                        {lpFee} {selectedToken.tokenSymbol}
+                        {lpFee} {tokenSymbol}
                     </div>
                 </div>
                 <div className={classes.feeDetailsRow}>
@@ -255,7 +276,7 @@ export default function TransferDetails(props) {
                         Transaction Fee    
                     </div>    
                     <div className={classes.feeDetailValue}>
-                        {transactionFee} {selectedToken.tokenSymbol}
+                        {transactionFee} {tokenSymbol}
                     </div>      
                 </div>
             </div>
