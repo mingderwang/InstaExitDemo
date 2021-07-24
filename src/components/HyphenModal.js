@@ -38,7 +38,7 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: "column",
         width: "90%",
         borderRadius: '20px 20px 0px 0px',
-        paddingTop: "20px",
+        paddingTop: "40px",
         paddingBottom: "10px"
     },
     modalHeader: {

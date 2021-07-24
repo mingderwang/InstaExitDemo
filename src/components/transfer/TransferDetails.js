@@ -45,17 +45,16 @@ const useStyles = makeStyles((theme) => ({
         border: "2px solid #E5E5E5",
         boxSizing: "border-box",
         borderRadius: "10px",
-        padding: "10px",
+        padding: "10px 0px",
         width: "40%",
         display: "flex",
         flexDirection: "column"
     },
     networkDetailsContainer: {
         display: "flex",
-        flexDirection: "row",
-        justifyContent: "space-around",
-        marginTop: "10px",
-        alignItems: "center"
+        flexDirection: "column",
+        padding: "0px 10px 10px 10px",
+        borderBottom: "2px solid #E5E5E5"
     },
     networkDetails: {
         display: "flex",
@@ -67,9 +66,13 @@ const useStyles = makeStyles((theme) => ({
     },
     amountDetails: {
         display: "flex",
+        flexDirection: "column",
+        margin: "10px 10px 0px 10px"
+    },
+    chainAmountContainer: {
+        display: "flex",
+        alignItems: "baseline",
         flexDirection: "row",
-        justifyContent: "center",
-        margin: "20px 0 10px 0"
     },
     amount: {
         fontSize: "20px",
@@ -85,12 +88,25 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         alignItems: "center"
     },
+    chainAmountLabel: {
+        color: "#615CCD",
+        letterSpacing: "0.15em",
+        textTransform: "uppercase",
+        fontWeight: "bold",
+        fontSize: "11px",
+        textAlign: "left",
+        paddingLeft: "2px",
+        paddingBottom: "8px"
+    },
     chainDirectionLabel: {
         color: "#615CCD",
         letterSpacing: "0.15em",
         textTransform: "uppercase",
-        fontWeight: "500",
-        fontSize: "11px"
+        fontWeight: "bold",
+        fontSize: "11px",
+        textAlign: "left",
+        paddingLeft: "2px",
+        paddingBottom: "8px"
     },
     chainLogo: {
         width: "20px"
@@ -213,8 +229,11 @@ export default function TransferDetails(props) {
                         }
                     </div>
                     <div className={classes.amountDetails}>
-                        <div className={classes.amount}>{tokenAmount}</div>
-                        <div className={classes.tokenName}>{tokenSymbol}</div>
+                        <div className={classes.chainAmountLabel}>DEPOSITED</div>
+                        <div className={classes.chainAmountContainer}>
+                            <div className={classes.amount}>{tokenAmount}</div>
+                            <div className={classes.tokenName}>{tokenSymbol}</div>
+                        </div>
                     </div>
                 </div>
                 <div className={classes.arrowContainer}>
@@ -231,8 +250,11 @@ export default function TransferDetails(props) {
                         }
                     </div>
                     <div className={classes.amountDetails}>
-                        <div className={classes.amount}>{recievedAmount}</div>
-                        <div className={classes.tokenName}>{tokenSymbol}</div>
+                        <div className={classes.chainAmountLabel}>RECEIVED</div>
+                        <div className={classes.chainAmountContainer}>
+                            <div className={classes.amount}>{recievedAmount}</div>
+                            <div className={classes.tokenName}>{tokenSymbol}</div>
+                        </div>
                     </div>
                 </div>
             </div>
