@@ -914,13 +914,20 @@ function App() {
    *  Check if notify is defined and let it know about the hash.
    *  It will track and show the notification on the UI
    * */ 
-  const trackTransactionHash = (hash) => {
+  const trackTransactionHash = (hash, isDepositTransaction) => {
     if(notify) {
       const { emitter } = notify.hash(hash);
       if(emitter) {
-        emitter.on("all", (transaction)=>{
-          console.log(transaction)
-        });
+        // emitter.on("all", (transaction)=>{
+        //   console.log(transaction)
+        // });
+        emitter.on("txSpeedUp", async (transaction) => {
+          console.log("Transaction got speed up. Listening on new transaction hash ", transaction.hash);
+          if(isDepositTransaction && ethersProvider) {
+            await ethersProvider.waitForTransaction(transaction.hash, 1);
+            postDepositTransaction(transaction.hash);
+          }
+        })
       }
     }
   }
@@ -1023,7 +1030,7 @@ function App() {
             });
 
             // showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
-            trackTransactionHash(depositTx.hash);
+            trackTransactionHash(depositTx.hash, true);
             // Update Transfer State now once the deposit hash is completed
             dispatch(updateTransferState({
               fromChainId: selectedFromChain.chainId,
@@ -1042,19 +1049,7 @@ function App() {
             setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(1, `Waiting for deposit confirmation on ${selectedFromChain.name}`));
             await depositTx.wait(1);
-            listenForTransferConfirmation(depositTx.hash, selectedFromChain.chainId);
-            //showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
-            setOpenTransferActivity(true);
-            dispatch(updateTransferStepsContentArray(2, `Waiting for transfer on ${selectedToChain.name}`));
-
-            let date = new Date();
-            let startTime = date.getTime();
-            dispatch(updateTransferState({
-              currentStep: 2,
-              startTime: startTime
-            }));
-
-            updateUserBalance(userAddress, selectedToken);
+            postDepositTransaction(depositTx.hash);
           } catch (error) {
             console.log(error);
             dispatch(updateTransferButtonState(true, "Transfer"));
@@ -1098,6 +1093,24 @@ function App() {
       } else {
         showErrorMessage(`Make sure your wallet is on ${selectedFromChain.name} network`)
       }
+    }
+  }
+
+  const postDepositTransaction = (hash) => {
+    if(hash) {
+      listenForTransferConfirmation(hash, selectedFromChain.chainId);
+      //showFeedbackMessage(`Deposit Confirmed. Waiting for transaction on ${selectedToChain.name}`, "success");
+      setOpenTransferActivity(true);
+      dispatch(updateTransferStepsContentArray(2, `Waiting for transfer on ${selectedToChain.name}`));
+  
+      let date = new Date();
+      let startTime = date.getTime();
+      dispatch(updateTransferState({
+        currentStep: 2,
+        startTime: startTime
+      }));
+  
+      updateUserBalance(userAddress, selectedToken);
     }
   }
 

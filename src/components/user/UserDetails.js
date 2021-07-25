@@ -169,6 +169,10 @@ const useStyles = makeStyles((theme) => ({
         padding: "3px 10px",
         height: "18px",
         cursor: "pointer"
+    },
+    tokenLogo: {
+        height: "14px",
+        margin: "0px 5px 0px 8px"
     }
 }));
 
@@ -230,7 +234,7 @@ export default function UserDetails(props) {
                             }
                             txn.transferHash = transferInfo.id;
                             txn.toChainId = toChainId;
-                            let rawLpFee = transferInfo.FeeEarned;
+                            let rawLpFee = transferInfo.feeEarned;
                             let lpFee;
                             if(rawLpFee) {
                                 let {formattedAmount} = getTokenInfo(rawLpFee, transferInfo.tokenAddress.toLowerCase(), toChainId);
@@ -356,7 +360,7 @@ export default function UserDetails(props) {
                                 tokenAddress
                                 amount
                                 transferredAmount
-                                FeeEarned
+                                feeEarned
                                 timestamp
                             }
                         }
@@ -504,7 +508,7 @@ export default function UserDetails(props) {
                                 placement="top">
                                     <div className={classes.historyRow}>
                                         <img src={ArrowIcon} alt="=>"  className={classes.historyArrowIcon} /> 
-                                        {txn.amount} {txn.tokenSymbol} from
+                                        {txn.amount} <img src={config.tokenLogoMap[txn.tokenSymbol]} className={classes.tokenLogo}/> {txn.tokenSymbol} from
                                         <a target="_blank" href={config.getExplorerURL(txn.depositHash, txn.fromChainId)}
                                         className={classes.openInNewLink}>
                                             {txn.fromChainLabel}

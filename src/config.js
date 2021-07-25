@@ -1,5 +1,9 @@
 const TEST_ENVIRONMENT = "test";
 const PROD_ENVIRONMENT = "prod";
+let USDCLogo = require("./assets/usdc.png");
+let USDTLogo = require("./assets/usdt.png");
+let DAILogo = require("./assets/dai.png");
+
 
 let getEnv = () => {
     return process.env.REACT_APP_ENV;
@@ -7,6 +11,12 @@ let getEnv = () => {
 
 let config = {};
 config.getEnv = getEnv;
+
+config.tokenLogoMap = {
+  "USDC": USDCLogo,
+  "USDT": USDTLogo,
+  "DAI": DAILogo
+}
 
 let walletSelect = {
     wallets : [
