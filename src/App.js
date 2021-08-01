@@ -322,7 +322,7 @@ function App() {
   const [openProgressDialog, setOpenProgressDialog] = useState(false);
   const [feedbackTitle, setFeedbackTitle] = useState("Status");
   const [feedbackIcon, setFeedbackIcon] = useState();
-  const [lpFee, setLpFee] = useState(".3");
+  const [lpFee, setLpFee] = useState(".1");
   const [lpFeeAmount, setLpFeeAmount] = useState();
   const [showEstimation, setShowEstimation] = useState(false);
   const [walletChainId, setWalletChainId] = useState();

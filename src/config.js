@@ -57,7 +57,7 @@ let ETHEREUM = {
         networkId: 1,
         walletSelect
     },
-    graphURL : ""
+    graphURL : "https://api.thegraph.com/subgraphs/name/divyan73/hyphen-ethereum"
 }
 let MATIC = { 
     name: "Polygon",
@@ -73,7 +73,7 @@ let MATIC = {
         networkName: "Polygon Mainnet",
         walletSelect
     },
-    graphURL : ""
+    graphURL : "https://api.thegraph.com/subgraphs/name/divyan73/hyphenpolygon"
 }
 let GOERLI = { 
     name: "Goerli",
