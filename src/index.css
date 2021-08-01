@@ -185,3 +185,7 @@ cite:hover {
   justify-content: space-between;
   font-size: 12px;
 }
+
+.min-max-container span {
+  cursor: pointer;
+}

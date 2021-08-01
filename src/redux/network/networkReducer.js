@@ -7,7 +7,9 @@ import {
     TOGGLE_SWITCH_NETWORK_DISPALY,
     UPDATE_LP_MANAGER_ADDRESSES,
     UPDATE_FROM_CHAIN_PROVIDER,
-    UPDATE_TO_CHAIN_PROVIDER
+    UPDATE_TO_CHAIN_PROVIDER,
+    UPDATE_SELECTED_WALLET,
+    UPDATE_NETWORK_STATE
   } from './networkTypes'
   
   const initialState = {
@@ -18,11 +20,21 @@ import {
     fromLPManagerAddress: undefined,
     toLPManagerAddress: undefined,
     fromChainProvider: undefined,
-    toChainProvider: undefined
+    toChainProvider: undefined,
+    selectedWallet: undefined,
   }
   
   const reducer = (state = initialState, action) => {
+    let localState = state;
     switch (action.type) {
+      case UPDATE_NETWORK_STATE:
+        let keys = Object.keys(action.payload);
+        if(keys) {
+          for(let index=0; index < keys.length; index++) {
+            localState[keys[index]] = action.payload[keys[index]];
+          }
+        }
+        return localState;
       case UPDATE_SELECTED_FROM_CHAIN:
         return {
           ...state,
@@ -58,6 +70,11 @@ import {
         return {
           ...state,
           fromChainProvider: action.payload
+        }
+      case UPDATE_SELECTED_WALLET:
+        return {
+          ...state,
+          selectedWallet: action.payload
         }
       default: return state
     }
