@@ -66,6 +66,10 @@ let MATIC = {
     rpcUrl: "https://rpc-mainnet.matic.network",
     currency: "MATIC",
     nativeFaucetURL: "",
+    biconomy: {
+        enable: true,
+        apiKey: "jYEsJEDel.8bc71a9b-4097-4f77-98dc-3a713e3988b9"
+    },
     assetSentTopicId: "0xec1dcc5633614eade4a5730f51adc7444a5103a8477965a32f2e886f5b20f694",
     onboardConfig : {
         dappId : process.env.REACT_APP_DAPP_ID,
