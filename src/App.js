@@ -17,7 +17,7 @@ import InfoIcon from '@material-ui/icons/Info';
 import SuccessIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import styled from 'styled-components';
-import BiconomyLogo from './assets/Biconomy-logo-white.svg';
+import BiconomyLogo from './assets/Biconomy_Wordmark_Reversed.svg';
 import Tooltip from '@material-ui/core/Tooltip';
 import Notify from "bnc-notify"
 import AwesomeDebouncePromise from 'awesome-debounce-promise';
@@ -118,14 +118,14 @@ const useStyles = makeStyles((theme) => ({
     zIndex: "0!important"
   },
   estimationsContainer: {
-    background: "#555",
-    color: "white",
+    background: "#f1f1f1",
+    color: "#615CCD",
     display: "flex",
     flexDirection: "column",
     width: "92%",
     padding: "10px",
     margin: '8px',
-    borderRadius: "2px",
+    borderRadius: "5px",
     marginLeft: "auto",
     marginRight: "auto",
   },
@@ -141,6 +141,7 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "row",
     justifyContent: "space-between",
     fontWeight: "500",
+    color: "#615CCD",
     marginTop: "10px"
   },
   balanceRow: {
@@ -243,7 +244,8 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column-reverse",
     paddingBottom: "7px",
-    color: "#fff"
+    color: "#fff",
+    lineHeight: "1.3rem"
   },
   poweredByLogo: {
     height: "40px",
@@ -1529,8 +1531,10 @@ function App() {
             </div>
 
           </CardContent>
+        
         </Card>
       </section>
+
       { (selectedToChain.name === "Mumbai" || selectedToChain.name === "Goerli") &&
         <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
           chainLogoMap={chainLogoMap}
