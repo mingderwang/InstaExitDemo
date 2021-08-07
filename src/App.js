@@ -1,15 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
 import CardContent from '@material-ui/core/CardContent';
 import Button from '@material-ui/core/Button';
-import InputLabel from '@material-ui/core/InputLabel';
 import MenuItem from '@material-ui/core/MenuItem';
-import FormHelperText from '@material-ui/core/FormHelperText';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
-import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import TextField from '@material-ui/core/TextField';
 import { useSelector, useDispatch } from 'react-redux'
 import ProgressDialog from './components/ProgressDialog';
@@ -31,7 +27,7 @@ import Onboard from 'bnc-onboard'
 
 import { BigNumber, ethers } from "ethers";
 // import {EthUtil} from "ethereumjs-util";
-import { Hyphen, RESPONSE_CODES } from "@biconomy/hyphen";
+import { Hyphen, RESPONSE_CODES, SIGNATURE_TYPES } from "@biconomy/hyphen";
 import { withStyles, makeStyles } from '@material-ui/core/styles';
 import TokenListContainer from "./components/TokenListContainer";
 import { config } from "./config";
@@ -62,6 +58,7 @@ import Faucet from "./components/Faucet";
 import Header from "./components/Header";
 import TransferActivity from "./components/transfer/TransferActivity.";
 import TransferDetails from "./components/transfer/TransferDetails";
+import CustomNotification from "./components/CustomNotification";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -333,108 +330,122 @@ function App() {
   const [openTransferActivity, setOpenTransferActivity] = useState(false);
 
   async function init(provider) {
-    if (provider) {
-      dispatch(updateTransferButtonState(false, "Give wallet approval"));
-      console.log("Enable wallet to give permission to use the address");
-      await provider.enable();
-      ethersProvider = new ethers.providers.Web3Provider(provider, "any");
-      
-      console.log("Getting current network from wallet");
-      let network = await ethersProvider.getNetwork();
-      setWalletChainId(network.chainId);
-      
-      let walletChain = config.chainIdMap[network.chainId];
+    try {
 
-      if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
-        onFromChainSelected({target: {value: network.chainId}});
-
-      console.log("Initializing blocknative notify");
-      initBlocknativeNotify(network);
-
-      let biconomyOptions = {
-        enable: false
-      };
-      
-      if(walletChain) {
-        if(walletChain.biconomy && walletChain.biconomy.enable && walletChain.biconomy.apiKey) {
-          biconomyOptions.enable = true;
-          biconomyOptions.debug = true;
-          biconomyOptions.apiKey = walletChain.biconomy.apiKey
-        } else {
-          console.log(`Biconomy is not enabled for ${walletChain.name}`);
-        }
-      }
-
-      dispatch(updateTransferButtonState(false, "Initializing Hyphen"));
-      let hyphen = new Hyphen(provider, {
-        debug: true,
-        environment: config.getEnv(),
-        infiniteApproval: true,
-        biconomy: biconomyOptions,
-        // onFundsTransfered: async (data) => {
-          
-          // }
-        });
-      
-      signer = ethersProvider.getSigner();
-      let userAddress = await signer.getAddress();
-      if (userAddress) {
-        setUserAddress(userAddress);
-      }
-      
-      console.log("Initializing Hyphen");
-      await hyphen.init();
-      console.log("Hyphen initialized");
-
-
-      // updateFaucetBalance();
-      setHyphen(hyphen);
-      
-      ethersProvider.on("network", (newNetwork, oldNetwork) => {
-        // When a Provider makes its initial connection, it emits a "network"
-        // event with a null oldNetwork along with the newNetwork. So, if the
-        // oldNetwork exists, it represents a changing network
-        if (oldNetwork) {
-            window.location.reload();
-        }
-      });
-
-      dispatch(updateTransferButtonState(false, "Enter an amount"));
-      // try {
-      //   ethersProvider.on("block", (blockNumber) => {
-      //      updateFaucetBalance();
-      //   });
-      // } catch (error) {
-      //   console.log(error);
-      // }
-
-      // Hanlde user address change
-      if(provider.on) {          
-        provider.on('accountsChanged', function (accounts) {
-          console.log(`Address changed EVENT`);
-          console.log(`New account info`, accounts);
-
-          if(accounts && accounts.length > 0) {
-            let newUserAddress = accounts[0];
-            if (newUserAddress) {
-              setUserAddress(newUserAddress);
-            }
+      if (provider) {
+        dispatch(updateTransferButtonState(false, "Give wallet approval"));
+        console.log("Enable wallet to give permission to use the address");
+        await provider.enable();
+        ethersProvider = new ethers.providers.Web3Provider(provider, "any");
+        
+        console.log("Getting current network from wallet");
+        let network = await ethersProvider.getNetwork();
+        setWalletChainId(network.chainId);
+        
+        let walletChain = config.chainIdMap[network.chainId];
+  
+        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
+          onFromChainSelected({target: {value: network.chainId}});
+  
+        console.log("Initializing blocknative notify");
+        initBlocknativeNotify(network);
+  
+        let biconomyOptions = {
+          enable: false
+        };
+        
+        if(walletChain) {
+          if(walletChain.biconomy && walletChain.biconomy.enable && walletChain.biconomy.apiKey) {
+            biconomyOptions.enable = true;
+            biconomyOptions.debug = true;
+            biconomyOptions.apiKey = walletChain.biconomy.apiKey
+          } else {
+            console.log(`Biconomy is not enabled for ${walletChain.name}`);
           }
-        })
+        }
+  
+        dispatch(updateTransferButtonState(false, "Initializing Hyphen"));
+        let hyphen = new Hyphen(provider, {
+            debug: true,
+            infiniteApproval: true,
+            environment: config.getEnv(),
+            biconomy: biconomyOptions,
+            signatureType: SIGNATURE_TYPES.EIP712
+        });
+        
+        signer = ethersProvider.getSigner();
+        let userAddress = await signer.getAddress();
+        if (userAddress) {
+          setUserAddress(userAddress);
+        }
+        
+        console.log("Initializing Hyphen");
+        await hyphen.init();
+        console.log("Hyphen initialized");
+  
+  
+        // updateFaucetBalance();
+        setHyphen(hyphen);
+        
+        ethersProvider.on("network", (newNetwork, oldNetwork) => {
+          // When a Provider makes its initial connection, it emits a "network"
+          // event with a null oldNetwork along with the newNetwork. So, if the
+          // oldNetwork exists, it represents a changing network
+          if (oldNetwork) {
+              window.location.reload();
+          }
+        });
+  
+        dispatch(updateTransferButtonState(false, "Enter an amount"));
+        // try {
+        //   ethersProvider.on("block", (blockNumber) => {
+        //      updateFaucetBalance();
+        //   });
+        // } catch (error) {
+        //   console.log(error);
+        // }
+  
+        // Hanlde user address change
+        if(provider.on) {          
+          provider.on('accountsChanged', function (accounts) {
+            console.log(`Address changed EVENT`);
+            console.log(`New account info`, accounts);
+  
+            if(accounts && accounts.length > 0) {
+              let newUserAddress = accounts[0];
+              if (newUserAddress) {
+                setUserAddress(newUserAddress);
+              }
+            }
+          })
+        }
+      } else {
+        console.log("provider is not defined");
       }
-    } else {
-      console.log("provider is not defined");
+    } catch(error) {
+      showErrorMessage(error);
+      console.log(error);
     }
   }
 
   useEffect(() => {
     try {
       // init();
+      // showCustomMessage("Approve Transaction", "Waiting for confirmation", "https://biconomy.io", true, "info");
+      // showCustomMessage("Approve Transaction", "Transaction Confirmed !!", "https://biconomy.io", false, "success");
     } catch(error) {
       console.log(error);
       showErrorMessage("Error while initiazing the App");
     }
   }, []);
+
+  function showCustomMessage(title, message, href, showProgress, type) {
+    return _showCustomMessage({
+      title,
+      message: <CustomNotification message={message} showProgress={showProgress} href={href} type={type}/>,
+      duration: 0
+    });
+  }
 
   function initBlocknativeNotify(network) {
     try {
@@ -916,7 +927,7 @@ function App() {
    *  Check if notify is defined and let it know about the hash.
    *  It will track and show the notification on the UI
    * */ 
-  const trackTransactionHash = (hash, isDepositTransaction) => {
+  const trackTransactionHash = (hash, option) => {
     if(notify) {
       const { emitter } = notify.hash(hash);
       if(emitter) {
@@ -925,9 +936,11 @@ function App() {
         // });
         emitter.on("txSpeedUp", async (transaction) => {
           console.log("Transaction got speed up. Listening on new transaction hash ", transaction.hash);
-          if(isDepositTransaction && ethersProvider) {
+          if(option && option.isDepositTransaction && ethersProvider) {
             await ethersProvider.waitForTransaction(transaction.hash, 1);
             postDepositTransaction(transaction.hash);
+          } else {
+            trackTransactionHash(transaction.hash);
           }
         })
       }
@@ -944,10 +957,18 @@ function App() {
           let rawAmount = selectedTokenAmount * Math.pow(10, tokenDecimals);
           rawAmount = rawAmount.toLocaleString('fullwide', {useGrouping:false})
           rawAmount = BigNumber.from(rawAmount).toHexString();
-          
+
           let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, userAddress);
-          trackTransactionHash(approveTx.hash);
+          trackTransactionHash(approveTx.hash, {isApprovalTransaction: true});
+          let notificationId;
+          if(!notify) {
+            notificationId = showCustomMessage("Approve Transaction", "Transaction has started", config.getExplorerURL(approveTx.hash, selectedFromChain.chainId), true, "info");
+          }
           await approveTx.wait(1);
+          if(!notify) {
+            removeNotification(notificationId);
+            showCustomMessage("Approve Transaction", "Transaction Confirmed", config.getExplorerURL(approveTx.hash, selectedFromChain.chainId), false, "success");
+          }
           dispatch(updateApproveButtonState(false, true, `Approval Done`));
           dispatch(updateTransferButtonState(true, `Transfer`));
         } else {
@@ -1032,7 +1053,7 @@ function App() {
             });
 
             // showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
-            trackTransactionHash(depositTx.hash, true);
+            trackTransactionHash(depositTx.hash, {isDepositTransaction: true});
             // Update Transfer State now once the deposit hash is completed
             dispatch(updateTransferState({
               fromChainId: selectedFromChain.chainId,
@@ -1066,7 +1087,7 @@ function App() {
               dispatch(updateApproveButtonState(false, true, "Processing ..."));
               dispatch(updateTransferButtonState(false, "Transfer"));
               let approveTx = await hyphen.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString(), userAddress);
-              trackTransactionHash(approveTx.hash);
+              trackTransactionHash(approveTx.hash, {isApprovalTransaction: true});
               showFeedbackMessage(`Waiting for approval confirmation`);
               await approveTx.wait(1);
               showSuccessMessage("Approval transaction confirmed");
@@ -1225,35 +1246,62 @@ function App() {
     }
   };
 
-  const showSuccessMessage = message => {
+  const showSuccessMessage = (message, duration, title) => {
     // https://www.npmjs.com/package/react-notifications-component
     if(store) {
       store.addNotification({
-          title: "Message",
+          title: title || "Message",
           message: message,
           type: "success",
           container: "bottom-right",
           dismiss: {
-            duration: 3000,
+            duration: duration != undefined ? duration : 3000,
             onScreen: true,
-            pauseOnHover: true
+            pauseOnHover: true,
+            showIcon: true,
+            click: false
           }
       });
     }
   };
 
-  const showInfoMessage = message => {
+  const removeNotification = (id) => {
+    if(id && store) {
+      store.removeNotification(id);
+    }
+  }
+  const _showCustomMessage = ({title, message, duration}) => {
+    if(store) {
+      return store.addNotification({
+        message: message,
+        title: title || "Message",
+        container: "bottom-right",
+        type: "default",
+        dismiss: {
+          duration: duration != undefined ? duration : 3000,
+          onScreen: true,
+          pauseOnHover: true,
+          click: false,
+          showIcon: true
+        }
+      });
+    }
+  }
+
+  const showInfoMessage = (message, duration, title) => {
     // https://www.npmjs.com/package/react-notifications-component
     if(store) {
       store.addNotification({
-          title: "Message",
+          title: title || "Message",
           message: message,
           type: "info",
           container: "bottom-right",
           dismiss: {
-            duration: 3000,
+            duration: duration != undefined ? duration : 3000,
             onScreen: true,
-            pauseOnHover: true
+            pauseOnHover: true,
+            click: false,
+            showIcon: true
           }
       });
     }
