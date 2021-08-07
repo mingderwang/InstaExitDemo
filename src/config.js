@@ -28,7 +28,7 @@ let MUMBAI = {
     name: "Mumbai",
     subText: "Polygon testnet",
     chainId: 80001,
-    rpcUrl: "https://rpc-mumbai.matic.today",
+    rpcUrl: "https://rpc-mumbai.maticvigil.com",
     currency: "Test MATIC",
     nativeFaucetURL: "https://faucet.matic.network/",
     biconomy: {
@@ -63,7 +63,7 @@ let MATIC = {
     name: "Polygon",
     subText: "Polygon Mainnet",
     chainId: 137,
-    rpcUrl: "https://rpc-mainnet.matic.network",
+    rpcUrl: "https://rpc-mainnet.maticvigil.com",
     currency: "MATIC",
     nativeFaucetURL: "",
     biconomy: {
@@ -87,6 +87,10 @@ let GOERLI = {
     currency: "Goerli ETH",
     nativeFaucetURL: "https://faucet.goerli.mudit.blog/",
     assetSentTopicId: "0xec1dcc5633614eade4a5730f51adc7444a5103a8477965a32f2e886f5b20f694",
+    biconomy: {
+        enable: true,
+        apiKey: "Ze_BIjFdZ.e5900961-0c16-4cb1-b4b7-604a5069daa8"
+    },
     onboardConfig : {
         dappId : process.env.REACT_APP_DAPP_ID,
         networkId: 5,
@@ -252,7 +256,7 @@ config.changeRPCPayload = {
             decimals: 18
         },
         rpcUrls: [MUMBAI.rpcUrl],
-        blockExplorerUrls: ['https://explorer-mumbai.maticvigil.com/'],
+        blockExplorerUrls: ['https://mumbai.polygonscan.com/'],
     },
     137: {
         chainId: '0x89',
