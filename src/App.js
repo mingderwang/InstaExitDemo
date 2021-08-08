@@ -337,15 +337,19 @@ function App() {
         console.log("Enable wallet to give permission to use the address");
         await provider.enable();
         ethersProvider = new ethers.providers.Web3Provider(provider, "any");
-        
+        signer = ethersProvider.getSigner();
+
         console.log("Getting current network from wallet");
         let network = await ethersProvider.getNetwork();
         setWalletChainId(network.chainId);
         
         let walletChain = config.chainIdMap[network.chainId];
-  
-        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString()))
+
+        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString())) {
           onFromChainSelected({target: {value: network.chainId}});
+        } else {
+          checkNetwork(selectedFromChain);
+        }
   
         console.log("Initializing blocknative notify");
         initBlocknativeNotify(network);
@@ -373,7 +377,6 @@ function App() {
             signatureType: SIGNATURE_TYPES.EIP712
         });
         
-        signer = ethersProvider.getSigner();
         let userAddress = await signer.getAddress();
         if (userAddress) {
           setUserAddress(userAddress);
@@ -423,7 +426,11 @@ function App() {
         console.log("provider is not defined");
       }
     } catch(error) {
-      showErrorMessage(error);
+      if(error && error.message) {
+        showErrorMessage(error.message);
+      } else {
+        showErrorMessage("Error while initialising App");
+      }
       console.log(error);
     }
   }
@@ -501,30 +508,42 @@ function App() {
 
 
   useEffect(() => {
-    if(selectedFromChain) {
-
-      let initOnboard = async () => {
-        // Initialize Onboard
-        onboard = Onboard({
-          ...selectedFromChain.onboardConfig,
-          hideBranding: true,
-          subscriptions: {
-            wallet: wallet => {
-               init(wallet.provider);
-               updateWallet(wallet.name);
+    (async ()=>{
+      if(selectedFromChain) {
+        if(signer && ethersProvider) {
+          let status = await checkNetwork(selectedFromChain);
+          if (hyphen && selectedFromChain.chainId && status) {
+            let tokenList = hyphen.getSupportedTokens(selectedFromChain.chainId);
+            if (tokenList) {
+              dispatch(updateSupportedTokensAndSelectedToken(tokenList));
+            } else {
+              showErrorMessage(`Unable to get supported token list for network id ${selectedFromChain.chainId} `)
             }
           }
-        });
+        }
+        let initOnboard = async () => {
+          // Initialize Onboard
+          onboard = Onboard({
+            ...selectedFromChain.onboardConfig,
+            hideBranding: true,
+            subscriptions: {
+              wallet: wallet => {
+                 init(wallet.provider);
+                 updateWallet(wallet.name);
+              }
+            }
+          });
+        }
+  
+        initOnboard();
+        connectToLastSelectedWallet();
+        let rpcUrl = selectedFromChain.rpcUrl;
+        if(rpcUrl) {
+          let provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+          dispatch(updateFromChainProvider(provider));
+        }
       }
-
-      initOnboard();
-      connectToLastSelectedWallet();
-      let rpcUrl = selectedFromChain.rpcUrl;
-      if(rpcUrl) {
-        let provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        dispatch(updateFromChainProvider(provider));
-      }
-    }
+    })();
   }, [selectedFromChain])
 
   useEffect(() => {
@@ -569,7 +588,7 @@ function App() {
   }
   
   const updateUserBalance = async (userAddress, selectedToken) => {
-    let status = await checkNetwork();
+    let status = await checkNetwork(selectedFromChain);
     if (status) {
       if (userAddress) {
         console.log(`User address is ${userAddress}`)
@@ -643,20 +662,20 @@ function App() {
     }
   }
 
-  const checkNetwork = async () => {
+  const checkNetwork = async (fromChain) => {
     let status = true;
-    if (signer && ethersProvider) {
+    if (signer && ethersProvider && fromChain) {
       let currentNetwork = await ethersProvider.getNetwork();
-      if (currentNetwork.chainId != selectedFromChain.chainId) {
+      if (currentNetwork.chainId != fromChain.chainId) {
         status = false;
-        checkAndShowSwitchNetworkButton(selectedFromChain);
-        showErrorMessage(`Please switch your wallet to ${selectedFromChain.name} network`);
+        checkAndShowSwitchNetworkButton(fromChain);
+        showErrorMessage(`Please switch your wallet to ${fromChain.name} network`);
       } else {
         dispatch(toggleSwitchNetworkDisplay(false));
       }
     } else {
       status = false;
-      showErrorMessage(`Make sure your wallet in unlocked`);
+      showErrorMessage(`Make sure your wallet is unlocked`);
     }
     return status;
   }
@@ -708,11 +727,12 @@ function App() {
     }
   }
 
-  const onFromChainSelected = (event) => {
+  const onFromChainSelected = async (event) => {
     let selectedNetwork = config.chainIdMap[event.target.value]
     let currentToChain = selectedToChain;
     setFromChain(selectedNetwork);
     dispatch(updateSelectedFromChain(selectedNetwork));
+    checkNetwork(selectedNetwork);
 
     // If selected 'from' chain and current 'to' chain are same
     console.log('Selected Network: ', selectedNetwork);
@@ -729,15 +749,6 @@ function App() {
       if (nextChain && nextChain.chainId != undefined) {
         setToChain(nextChain);
         dispatch(updateSelectedToChain(nextChain));
-      }
-    }
-
-    if (hyphen && selectedNetwork.chainId) {
-      let tokenList = hyphen.getSupportedTokens(selectedNetwork.chainId);
-      if (tokenList) {
-        dispatch(updateSupportedTokensAndSelectedToken(tokenList));
-      } else {
-        showErrorMessage(`Unable to get supported token list for network id ${selectedNetwork.chainId} `)
       }
     }
   }
@@ -990,7 +1001,7 @@ function App() {
 
   const onTransfer = async () => {
     try {
-      let networkCheck = await checkNetwork();
+      let networkCheck = await checkNetwork(selectedFromChain);
       if (!networkCheck) {
         return;
       }
@@ -1056,6 +1067,8 @@ function App() {
             trackTransactionHash(depositTx.hash, {isDepositTransaction: true});
             // Update Transfer State now once the deposit hash is completed
             dispatch(updateTransferState({
+              depositHash: depositTx.hash,
+              depositStatus: config.transactionStatus.PENDING,
               fromChainId: selectedFromChain.chainId,
               toChainId: selectedToChain.chainId,
               tokenAddress: selectedToken.address,
@@ -1069,7 +1082,7 @@ function App() {
             }));
 
             // Deposit Transaction Initiated. Update the Transfer State Steps
-            setOpenTransferActivity(true);
+            // setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(1, `Waiting for deposit confirmation on ${selectedFromChain.name}`));
             await depositTx.wait(1);
             postDepositTransaction(depositTx.hash);
@@ -1129,6 +1142,7 @@ function App() {
       let date = new Date();
       let startTime = date.getTime();
       dispatch(updateTransferState({
+        depositStatus: config.transactionStatus.CONFIRMED,
         currentStep: 2,
         startTime: startTime
       }));
@@ -1150,11 +1164,15 @@ function App() {
           if(data.statusCode == 1 && data.exitHash && data.exitHash !== "") {
             // Exit hash found but transaction is not yet confirmed
             console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
-            setOpenTransferActivity(true);
+            // setOpenTransferActivity(true);
             dispatch(updateTransferStepsContentArray(2, <div>
-              Transfer Initiated. 
-              <a className={classes.exitHashLink} target="_blank" href={config.getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
+              Transfer Initiated
+              {/* <a className={classes.exitHashLink} target="_blank" href={config.getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a> */}
             </div>));
+            dispatch(updateTransferState({
+              transferHash: data.exitHash,
+              transferStatus: config.transactionStatus.PENDING
+            }));
           } else if(data.statusCode == 2 && data.exitHash && data.exitHash !== "") {
             console.log("Funds transfer successful");
             console.log(`Exit hash on chainId ${data.toChainId} is ${data.exitHash}`);
@@ -1200,11 +1218,8 @@ function App() {
             setOpenTransferActivity(true);
             dispatch(updateTransferState({
               transferHash: data.exitHash,
-              currentStep: 3,
-              transferActivityStatus: <div>
-                ✅ Transfer successful. 
-                <a className={classes.exitHashLink} target="_blank" href={config.getExplorerURL(data.exitHash, data.toChainId)}>Check explorer</a>
-              </div>
+              transferStatus: config.transactionStatus.CONFIRMED,
+              currentStep: 3
             }));
           }
         } else {
@@ -1382,7 +1397,14 @@ function App() {
           setOpenTransferActivity(false);
           // Reset any changed Step Content or Label
           dispatch(updateTransferStepsContentArray(1, "Confirm the deposit transaction in your wallet"));
-          dispatch(updateTransferState({currentStep: 0, transferActivityStatus: ""}));
+          dispatch(updateTransferState({
+            currentStep: 0,
+            transferActivityStatus: "",
+            depositHash: undefined,
+            depositStatus: undefined,
+            transferHash: undefined,
+            transferStatus: undefined
+          }));
         }}
         activityName="Transfer"/>
       <TransferDetails 
@@ -1399,7 +1421,7 @@ function App() {
         onClickWalletChange={onClickConnectWallet}/>
 
       <div className="App">
-        { (selectedFromChain.name === "Mumbai" || selectedFromChain.name === "Goerli") &&
+        { (selectedFromChain && (selectedFromChain.name === "Mumbai" || selectedFromChain.name === "Goerli")) &&
           <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
             chainLogoMap={chainLogoMap}
             selectedChain={selectedFromChain}
@@ -1436,7 +1458,7 @@ function App() {
                   <Select
                     labelId="select-from-chain-label"
                     id="from-chain-select"
-                    value={fromChain.chainId}
+                    value={fromChain ? fromChain.chainId : undefined}
                     onChange={onFromChainSelected}
                     style={{ display: "flex!important" }}
                   >
@@ -1448,7 +1470,7 @@ function App() {
                     )}
                   </Select>
                 </FormControl>
-                <div className={classes.chainSubText}>{fromChain.subText}</div>
+                <div className={classes.chainSubText}>{fromChain ? fromChain.subText : ""}</div>
               </div>
 
               <img src={ArrowIcon} alt="=>"  className={classes.arrowBetweenNetworks} onClick={flipNetworks}/>
@@ -1461,7 +1483,7 @@ function App() {
                   <Select
                     labelId="select-to-chain-label"
                     id="to-chain-select"
-                    value={toChain.chainId}
+                    value={toChain ? toChain.chainId : undefined}
                     onChange={onToChainSelected}
                   >
                     {toChainList && toChainList.map((chain, index) =>
@@ -1472,7 +1494,7 @@ function App() {
                     )}
                   </Select>
                 </FormControl>
-                <div className={classes.chainSubText}>{toChain.subText}</div>
+                <div className={classes.chainSubText}>{toChain ? toChain.subText : ""}</div>
               </div>
             </div>
 
@@ -1503,7 +1525,8 @@ function App() {
                 }
               </div>
               <TokenListContainer hyphen={hyphen}
-                toChainId={selectedToChain.chainId} fromChainId={selectedFromChain.chainId} />
+                toChainId={selectedToChain ? selectedToChain.chainId : ""} 
+                fromChainId={selectedFromChain ? selectedFromChain.chainId : ""} />
               {/* </FormControl> */}
             </div>
             {showEstimation &&
@@ -1583,7 +1606,7 @@ function App() {
         </Card>
       </section>
 
-      { (selectedToChain.name === "Mumbai" || selectedToChain.name === "Goerli") &&
+      { (selectedToChain && (selectedToChain.name === "Mumbai" || selectedToChain.name === "Goerli")) &&
         <Faucet className={`${classes.chainInfoContainer} ${classes.rightChainContainer}`} 
           chainLogoMap={chainLogoMap}
           selectedChain={selectedToChain}

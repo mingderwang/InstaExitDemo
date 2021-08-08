@@ -57,6 +57,10 @@ let ETHEREUM = {
         networkId: 1,
         walletSelect
     },
+    biconomy: {
+        enable: false,
+        apiKey: "fWz3rAdDl.44d92a99-9ca4-47b1-98ca-aa2bae068e38"
+    },
     graphURL : "https://api.thegraph.com/subgraphs/name/divyan73/hyphen-ethereum"
 }
 let MATIC = { 
@@ -307,5 +311,10 @@ config.connectWalletText = "Connect Wallet";
 config.selectedWalletKey = "SW";
 config.WALLET = {
     METAMASK : "MetaMask"
+}
+config.transactionStatus = {
+    PENDING: "Pending",
+    FAILED: "Failed",
+    CONFIRMED: "Confirmed"
 }
 module.exports = { config }
