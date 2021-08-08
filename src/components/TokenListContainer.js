@@ -56,8 +56,10 @@ function TokenListContainer(props) {
         if (hyphen) {
             console.log(props.fromChainId);
             let tokenList = hyphen.getSupportedTokens(props.fromChainId);
-            console.log(tokenList);
-            dispatch(updateSupportedTokens(tokenList));
+            console.log('Supported token list for network id ', props.fromChainId, ' is ', tokenList);
+            if(tokenList) {
+                dispatch(updateSupportedTokens(tokenList));
+            }
         }
     }, [props.hyphen]);
 

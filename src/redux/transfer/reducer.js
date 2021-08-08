@@ -33,9 +33,12 @@ const initialState = {
   transferStepsContentArray: transferStepsContentArray,
   savingAmount: undefined,
   showTransferDetailsModal: false,
-  transferHash: undefined,
   startTime: undefined,
-  endTime: undefined
+  endTime: undefined,
+  depositHash: undefined,
+  depositStatus: undefined,
+  transferHash: undefined,
+  transferStatus: undefined
 }
 
 const reducer = (state = initialState, action) => {

@@ -189,3 +189,10 @@ cite:hover {
 .min-max-container span {
   cursor: pointer;
 }
+
+.link {
+  text-decoration: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}

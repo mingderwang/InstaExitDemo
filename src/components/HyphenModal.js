@@ -73,6 +73,15 @@ const useStyles = makeStyles((theme) => ({
         width: "100%",
         display: "flex",
         justifyContent: "center"
+    },
+    footerNote: {
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        color: "#615CCD",
+        fontSize: "14px",
+        marginBottom: "5px"
     }
 }));
 
@@ -106,6 +115,11 @@ export default function HyphenModal(props) {
                         </div>
                         <div className={clsx(classes.modalBottom, classes.modalRow)}>
                             {props.bottomContent}
+                            {props.footerNote && 
+                                <div className={classes.footerNote}>
+                                    {props.footerNote}
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>

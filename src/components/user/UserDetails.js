@@ -199,75 +199,78 @@ export default function UserDetails(props) {
     const [emptyTransactionHistoryMessage, setEmptyTransactionHistoryMessage] = useState("Fetching transaction history ...");
 
     async function fetchTransactions() {
-        let graphClient = getGraphClient(selectedFromChain.chainId);
-        if(userAddress && graphClient, showUserDetails) {
-            try {
-                let _transactionHistory = []
-                let transactions = await getUserDepositTransactions(userAddress, graphClient);
-                if(transactions && transactions.length > 0) {
-                    for(let index=0; index < transactions.length; index++) {
-                        let curTransaction = transactions[index];
-                        let tokenAddress = curTransaction.tokenAddress;
-                        let startTimestamp = curTransaction.timestamp;
-                        let tokenSymbol;
-                        let amount;
-                        if(tokenAddress && selectedFromChain && selectedFromChain.chainId) {
-                            let {formattedAmount, symbol} = getTokenInfo(curTransaction.amount, tokenAddress, selectedFromChain.chainId);
-                            amount = formattedAmount;
-                            tokenSymbol = symbol;
-                        }
-                        let toChainId = curTransaction.toChainId;
-                        let toChainLabel = toChainId;
-                        if(toChainId && config.chainIdMap[toChainId]) {
-                            toChainLabel = config.chainIdMap[toChainId].name;
-                        }
-                        let txn = {};
+        if(selectedFromChain) {
 
-                        let transferInfo = await getTransferHash(curTransaction.id, toChainId);
-                        if(transferInfo && transferInfo.id) {
-                            let amountReceived = transferInfo.transferredAmount;
-                            let receivedTokenSymbol;
-                            if(amountReceived) {
-                                let {formattedAmount, symbol} = getTokenInfo(amountReceived, transferInfo.tokenAddress.toLowerCase(), toChainId);
-                                amountReceived = formattedAmount;
-                                receivedTokenSymbol = symbol;
+            let graphClient = getGraphClient(selectedFromChain.chainId);
+            if(userAddress && graphClient, showUserDetails) {
+                try {
+                    let _transactionHistory = []
+                    let transactions = await getUserDepositTransactions(userAddress, graphClient);
+                    if(transactions && transactions.length > 0) {
+                        for(let index=0; index < transactions.length; index++) {
+                            let curTransaction = transactions[index];
+                            let tokenAddress = curTransaction.tokenAddress;
+                            let startTimestamp = curTransaction.timestamp;
+                            let tokenSymbol;
+                            let amount;
+                            if(tokenAddress && selectedFromChain && selectedFromChain.chainId) {
+                                let {formattedAmount, symbol} = getTokenInfo(curTransaction.amount, tokenAddress, selectedFromChain.chainId);
+                                amount = formattedAmount;
+                                tokenSymbol = symbol;
                             }
-                            txn.transferHash = transferInfo.id;
-                            txn.toChainId = toChainId;
-                            let rawLpFee = transferInfo.feeEarned;
-                            let lpFee;
-                            if(rawLpFee) {
-                                let {formattedAmount} = getTokenInfo(rawLpFee, transferInfo.tokenAddress.toLowerCase(), toChainId);
-                                lpFee = formattedAmount;
+                            let toChainId = curTransaction.toChainId;
+                            let toChainLabel = toChainId;
+                            if(toChainId && config.chainIdMap[toChainId]) {
+                                toChainLabel = config.chainIdMap[toChainId].name;
                             }
-                            txn.lpFee = lpFee;
-                            txn.amountReceived = amountReceived;
-                            txn.receivedTokenSymbol = receivedTokenSymbol;
-                            txn.receivedTokenAddress = transferInfo.tokenAddress;
-                            txn.endTimestamp = transferInfo.timestamp;
+                            let txn = {};
+    
+                            let transferInfo = await getTransferHash(curTransaction.id, toChainId);
+                            if(transferInfo && transferInfo.id) {
+                                let amountReceived = transferInfo.transferredAmount;
+                                let receivedTokenSymbol;
+                                if(amountReceived) {
+                                    let {formattedAmount, symbol} = getTokenInfo(amountReceived, transferInfo.tokenAddress.toLowerCase(), toChainId);
+                                    amountReceived = formattedAmount;
+                                    receivedTokenSymbol = symbol;
+                                }
+                                txn.transferHash = transferInfo.id;
+                                txn.toChainId = toChainId;
+                                let rawLpFee = transferInfo.feeEarned;
+                                let lpFee;
+                                if(rawLpFee) {
+                                    let {formattedAmount} = getTokenInfo(rawLpFee, transferInfo.tokenAddress.toLowerCase(), toChainId);
+                                    lpFee = formattedAmount;
+                                }
+                                txn.lpFee = lpFee;
+                                txn.amountReceived = amountReceived;
+                                txn.receivedTokenSymbol = receivedTokenSymbol;
+                                txn.receivedTokenAddress = transferInfo.tokenAddress;
+                                txn.endTimestamp = transferInfo.timestamp;
+                            }
+    
+                            txn.amount = amount;
+                            txn.depositHash = curTransaction.id;
+                            txn.tokenSymbol = tokenSymbol;
+                            txn.fromChainLabel = selectedFromChain.name;
+                            txn.fromChainId = selectedFromChain.chainId;
+                            txn.toChainLabel = toChainLabel;
+                            txn.receiver = curTransaction.receiver;
+                            txn.startTimestamp = startTimestamp;
+                            _transactionHistory.push(txn);
                         }
-
-                        txn.amount = amount;
-                        txn.depositHash = curTransaction.id;
-                        txn.tokenSymbol = tokenSymbol;
-                        txn.fromChainLabel = selectedFromChain.name;
-                        txn.fromChainId = selectedFromChain.chainId;
-                        txn.toChainLabel = toChainLabel;
-                        txn.receiver = curTransaction.receiver;
-                        txn.startTimestamp = startTimestamp;
-                        _transactionHistory.push(txn);
                     }
-                }
-                if(_transactionHistory.length == 0) {
+                    if(_transactionHistory.length == 0) {
+                        setEmptyTransactionHistoryMessage("No Transactions Found");
+                    }
+                    console.log(_transactionHistory);
+                    setTransactionHistory(_transactionHistory);
+                } catch(error) {
+                    console.error("Could not get user transactions");
+                    console.error(error);
+                    setTransactionHistory([]);
                     setEmptyTransactionHistoryMessage("No Transactions Found");
                 }
-                console.log(_transactionHistory);
-                setTransactionHistory(_transactionHistory);
-            } catch(error) {
-                console.error("Could not get user transactions");
-                console.error(error);
-                setTransactionHistory([]);
-                setEmptyTransactionHistoryMessage("No Transactions Found");
             }
         }
     }
