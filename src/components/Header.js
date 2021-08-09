@@ -14,11 +14,14 @@ const HeaderWrapper = styled.div`
   display: flex;
   padding: 5px;
   height: 40px;
+  position: fixed;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   flex-grow: 1;
   flex-wrap: wrap;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1)
+  z-index: 1;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 `
 const IconWrapper = styled.div`
     display: flex;

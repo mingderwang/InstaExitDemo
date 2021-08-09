@@ -269,7 +269,7 @@ export default function TransferActivity(props) {
         <div>
             <div className={classes.transferActivityStatus}>{transferActivityStatus}</div>
             <div className={classes.transferHashContainer}>
-                {depositHash && 
+                {depositHash && depositStatus &&
                     <div className={classes.transferHashRow}>
                         <div className={classes.transferHashLabel}>Deposit on {selectedFromChain.name}</div>
                         <div className={classes.transferHashButtonContainer}>
@@ -283,7 +283,7 @@ export default function TransferActivity(props) {
                         </div>
                     </div>
                 }
-                {transferHash && 
+                {transferHash && transferStatus &&
                     <div className={classes.transferHashRow}>
                         <div className={classes.transferHashLabel}>Transfer on {selectedToChain.name}</div>
                         <div className={classes.transferHashButtonContainer}>

@@ -7,6 +7,7 @@ import { updateTransferState,
     updateTransferStepsLabelArray } from '../../redux';
 import { Button } from '@material-ui/core';
 import ArrowIcon from '../../assets/arrow.svg';
+import LaunchIcon from '@material-ui/icons/Launch';
 import { config } from '../../config';
 import HyphenModal from '../HyphenModal';
 let MaticLogo = require("../../assets/polygon-matic-logo.png");
@@ -130,7 +131,13 @@ const useStyles = makeStyles((theme) => ({
     modalFooter: {
         width: "100%",
         display: "flex",
-        justifyContent: "center"
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center"
+    },
+    icon: {
+        width: "16px",
+        height: "16px"
     }
 }));
 
@@ -138,9 +145,10 @@ const DetailsButton = withStyles((theme) => ({
     root: {
         color: "#fff!important",
         backgroundColor: "#615CCD!important",
-        height: "50px",
-        fontSize: "1.1rem",
-        width: "80%",
+        // height: "50px",
+        fontSize: ".9rem",
+        width: "45%",
+        textTransform: "capitalize",
         margin: "16px 0 16px 0"
     },
 }))(Button);
@@ -149,11 +157,6 @@ export default function TransferDetails(props) {
     const classes = useStyles();
     const dispatch = useDispatch();
 
-    // const transferState = useSelector(state => state.transfer);
-    // const selectedFromChain = useSelector(state => state.network.selectedFromChain);
-    // const selectedToChain = useSelector(state => state.network.selectedToChain);
-    // const selectedTokenAmount = useSelector(state => state.transfer.tokenAmount);
-    // const selectedToken = useSelector(state => state.tokens.selectedToken);
     const tokenSymbol = useSelector(state => state.transfer.tokenSymbol);
     const fromChainId = useSelector(state => state.transfer.fromChainId);
     let selectedFromChain;
@@ -167,6 +170,7 @@ export default function TransferDetails(props) {
     const lpFee = useSelector(state => state.transfer.lpFee);
     const tokenAmount = useSelector(state => state.transfer.tokenAmount);
     const transferHash = useSelector(state => state.transfer.transferHash);
+    const depositHash = useSelector(state => state.transfer.depositHash);
     const startTime = useSelector(state => state.transfer.startTime);
     const endTime = useSelector(state => state.transfer.endTime);
     let timeForTransfer;
@@ -199,9 +203,9 @@ export default function TransferDetails(props) {
         }
     }, [transferHash]);
     
-    const openExplorer = () => {
-        if(transferHash && props.getExplorerURL) {
-            let url = props.getExplorerURL(transferHash, toChainId);
+    const openExplorer = (hash, chainId) => {
+        if(hash && props.getExplorerURL) {
+            let url = props.getExplorerURL(hash, chainId);
             window.open(url, '_blank').focus();
         } else {
             console.log(`Transfer hash or the explorerURL is not defined. TransferHash: ${transferHash}, ExplorerURL: ${props.getExplorerURL}`)
@@ -303,12 +307,21 @@ export default function TransferDetails(props) {
                 </div>
             </div>
             <div className={classes.modalFooter}>
-                <DetailsButton 
-                variant="contained"
-                onClick={openExplorer}
-                disabled={!detailsButtonEnabled}
-                classes={{ disabled: classes.disabledButton }}>
-                        Check On Explorer
+                <DetailsButton
+                    variant="contained"
+                    onClick={()=>{openExplorer(depositHash, fromChainId)}}
+                    disabled={!detailsButtonEnabled}
+                    classes={{ disabled: classes.disabledButton }}
+                    endIcon={<LaunchIcon className={classes.icon}/>}>
+                    Check Deposit
+                </DetailsButton>
+                <DetailsButton
+                    variant="contained"
+                    onClick={()=>{openExplorer(transferHash, toChainId)}}
+                    disabled={!detailsButtonEnabled}
+                    classes={{ disabled: classes.disabledButton }}
+                    endIcon={<LaunchIcon className={classes.icon}/>}>
+                    Check Transfer
                 </DetailsButton>
             </div>
         </div>

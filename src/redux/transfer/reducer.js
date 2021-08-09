@@ -33,6 +33,7 @@ const initialState = {
   transferStepsContentArray: transferStepsContentArray,
   savingAmount: undefined,
   showTransferDetailsModal: false,
+  showApprovePopup: false,
   startTime: undefined,
   endTime: undefined,
   depositHash: undefined,

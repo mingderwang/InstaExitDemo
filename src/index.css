@@ -39,6 +39,7 @@ code {
 .App {
   padding: 5px;
   display: flex;
+  margin-top: 80px;
   flex-direction: row;
   justify-content: center;
 }
