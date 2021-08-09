@@ -409,6 +409,7 @@ export default function UserDetails(props) {
             let recievedAmount = transaction.amountReceived;
             let lpFee = transaction.lpFee;
             let transferHash = transaction.transferHash;
+            let depositHash = transaction.depositHash;
             let startTime = transaction.startTimestamp * 1000;   // Converting in ms
             let endTime =  transaction.endTimestamp * 1000;      // Converting in ms
             dispatch(updateTransferState({
@@ -417,6 +418,7 @@ export default function UserDetails(props) {
                 lpFee,
                 toChainId,
                 tokenAmount,
+                depositHash,
                 tokenSymbol,
                 recievedAmount,
                 transferHash,

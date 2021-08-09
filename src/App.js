@@ -238,6 +238,9 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     alignItems: "bottom"
   },
+  poweredByLink: {
+    display: "flex"
+  },
   poweredByText: {
     display: "flex",
     flexDirection: "column-reverse",
@@ -1451,7 +1454,10 @@ function App() {
       <section className={classes.mainContainer}>
 
         <div className={classes.centerCardHeader}>
-          <div className={classes.poweredByText}>Powered By</div> <img src={BiconomyLogo} href="https://biconomy.io" className={classes.poweredByLogo} />
+          <div className={classes.poweredByText}>Powered By</div> 
+          <a href="https://biconomy.io" target="_blank" className={classes.poweredByLink}>
+            <img src={BiconomyLogo} className={classes.poweredByLogo} />
+          </a>
         </div>
         <Card className={classes.root} variant="outlined" style={{borderRadius: "30px"}}>
           <CardContent>
