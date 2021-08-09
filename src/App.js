@@ -57,8 +57,9 @@ import {
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
 import TransferActivity from "./components/transfer/TransferActivity.";
-import TransferDetails from "./components/transfer/TransferDetails";
+import TransferDetails from "./components/transfer/TransferDetails"; 
 import CustomNotification from "./components/CustomNotification";
+import ApprovePopup from "./components/transfer/ApprovePopup";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -308,6 +309,7 @@ function App() {
 
   const currentTransferStep = useSelector(state => state.transfer.currentStep);
   const openTransferDetails = useSelector(state => state.transfer.showTransferDetailsModal);
+  const showApprovePopup = useSelector(state => state.transfer.showApprovePopup);
 
   const selectedTokenRef = useRef(selectedToken);
 
@@ -328,6 +330,7 @@ function App() {
   const [faucetBalance, setFaucetBalance] = useState({});
   const [amountInputDisabled, setAmountInputDisabled] = useState(true);
   const [openTransferActivity, setOpenTransferActivity] = useState(false);
+  const [infiniteApproval, setInfiniteApproval] = useState(true);
 
   async function init(provider) {
     try {
@@ -371,7 +374,7 @@ function App() {
         dispatch(updateTransferButtonState(false, "Initializing Hyphen"));
         let hyphen = new Hyphen(provider, {
             debug: true,
-            infiniteApproval: true,
+            infiniteApproval: infiniteApproval,
             environment: config.getEnv(),
             biconomy: biconomyOptions,
             signatureType: SIGNATURE_TYPES.EIP712
@@ -958,7 +961,11 @@ function App() {
     }
   }
 
-  const onApprove = async () => {
+  const showApproveDialog = () => {
+    dispatch(updateTransferState({showApprovePopup: true}));
+  }
+
+  const onApprove = async (infiniteApproval) => {
     if(hyphen) {
       try {
         if(selectedToken && selectedToken.address && fromLPManagerAddress && selectedTokenAmount !== undefined && userAddress) {
@@ -969,7 +976,7 @@ function App() {
           rawAmount = rawAmount.toLocaleString('fullwide', {useGrouping:false})
           rawAmount = BigNumber.from(rawAmount).toHexString();
 
-          let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, userAddress);
+          let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, userAddress, infiniteApproval);
           trackTransactionHash(approveTx.hash, {isApprovalTransaction: true});
           let notificationId;
           if(!notify) {
@@ -1400,9 +1407,7 @@ function App() {
           dispatch(updateTransferState({
             currentStep: 0,
             transferActivityStatus: "",
-            depositHash: undefined,
             depositStatus: undefined,
-            transferHash: undefined,
             transferStatus: undefined
           }));
         }}
@@ -1410,10 +1415,21 @@ function App() {
       <TransferDetails 
         open={openTransferDetails}
         handleClose={()=> {
-          dispatch(updateTransferState({showTransferDetailsModal: false}))
+          dispatch(updateTransferState({
+            showTransferDetailsModal: false,
+            depositHash: undefined,
+            transferHash: undefined
+          }))
         }}
         getExplorerURL={config.getExplorerURL}
       />
+      <ApprovePopup 
+        open={showApprovePopup}
+        onProceed={onApprove}
+        infiniteApproval={infiniteApproval}
+        handleClose={()=>{
+          dispatch(updateTransferState({showApprovePopup: false}))
+        }}/>
 
       <Header switchButtonText={switchNetworkText} showSwitchNetworkButton={showSwitchNetworkButton}
         onClickNetworkChange={onClickSwitchNetwork} selectedFromChain={selectedFromChain}
@@ -1587,7 +1603,7 @@ function App() {
             <div className={classes.cardRow}>
               <FormControl variant="standard" size="medium" className={classes.formControlFullWidth}>
                 {approveButtonVisible && 
-                  <Button className={classes.actionButton} onClick={onApprove} 
+                  <Button className={classes.actionButton} onClick={showApproveDialog} 
                     size="large" variant="contained"
                     disabled={!approveButtonEnabled}>
                     {approveButtonText}
