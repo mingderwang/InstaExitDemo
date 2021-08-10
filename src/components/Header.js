@@ -121,14 +121,14 @@ function Header(props) {
     
     return (
         <HeaderWrapper>
-            {/* <UserDetails onClickWalletChange={props.onClickWalletChange}/> */}
-
             <IconWrapper className={classes.headerItems}>
                 <div className={classes.headerLinksContainer}>
                     <a href="https://hyphen-info.biconomy.io" target="_target" className={classes.headerLink}>Analytics</a> 
                     <CallMadeIcon className={classes.icon} />
                 </div>
             </IconWrapper>
+            <UserDetails onClickWalletChange={props.onClickWalletChange}/>
+
             
             <RightMenuWrapper className={classes.headerItems}>                
                 {!selectedWallet &&
