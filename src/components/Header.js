@@ -7,7 +7,7 @@ import TrimmedText from "../components/util/TrimmedText";
 import { config as cssConfig } from "../css-config";
 import EthIcon from "eth-icon";
 import UserDetails from "./user/UserDetails";
-
+import CallMadeIcon from '@material-ui/icons/CallMade';
 import { updateUserState } from "../redux";
 
 const HeaderWrapper = styled.div`
@@ -76,6 +76,22 @@ const useStyles = makeStyles((theme) => ({
         marginLeft: "10px",
         height: "24px!important",
         width: "24px!important"
+    },
+    icon: {
+        width: "14px",
+        marginLeft: "4px",
+        color: "#fff"
+    },
+    headerLink: {
+        textDecoration: "none",
+        color: "#fff"
+    },
+    headerLinksContainer: {
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "center",
+        padding: "2px 5px",
+        marginLeft: "20px"
     }
 }));
 
@@ -105,10 +121,15 @@ function Header(props) {
     
     return (
         <HeaderWrapper>
-            <UserDetails onClickWalletChange={props.onClickWalletChange}/>
-            <IconWrapper className={classes.headerItems, classes.logoText}>
-                
+            {/* <UserDetails onClickWalletChange={props.onClickWalletChange}/> */}
+
+            <IconWrapper className={classes.headerItems}>
+                <div className={classes.headerLinksContainer}>
+                    <a href="https://hyphen-info.biconomy.io" target="_target" className={classes.headerLink}>Analytics</a> 
+                    <CallMadeIcon className={classes.icon} />
+                </div>
             </IconWrapper>
+            
             <RightMenuWrapper className={classes.headerItems}>                
                 {!selectedWallet &&
                     <ConnectWalletWrapper>
