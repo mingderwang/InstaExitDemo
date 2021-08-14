@@ -53,12 +53,13 @@ export const updateSelectedToken = (token) => {
   }
 }
 
-export const updateSelectedTokenBalance = (balance, rawBalance) => {
+export const updateSelectedTokenBalance = (balance, rawBalance, displayBalance) => {
   return {
     type: SET_SELECTED_TOKEN_BALANCE,
     payload: {
       balance: balance,
-      rawBalance
+      rawBalance,
+      displayBalance
     }
   }
 }

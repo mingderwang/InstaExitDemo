@@ -60,6 +60,7 @@ import TransferActivity from "./components/transfer/TransferActivity.";
 import TransferDetails from "./components/transfer/TransferDetails"; 
 import CustomNotification from "./components/CustomNotification";
 import ApprovePopup from "./components/transfer/ApprovePopup";
+import { toFixed } from "./util";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -144,6 +145,7 @@ const useStyles = makeStyles((theme) => ({
   },
   balanceRow: {
     textAlign: "right",
+    marginTop: "30px",
     paddingTop: "20px",
     paddingLeft: "20px",
     paddingRight: "20px",
@@ -265,6 +267,20 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "left",
     paddingLeft: "10px",
     marginTop: "-4px"
+  },
+  balance: {
+    marginLeft: "5px",
+    marginRight: "5px"
+  },
+  maxBalanceButton: {
+    cursor: "pointer",
+    color: "#615CCD"
+  },
+  balanceContainer: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    fontSize: "15px"
   }
 }));
 
@@ -281,6 +297,7 @@ function App() {
 
   const selectedToken = useSelector(state => state.tokens.selectedToken);
   const selectedTokenBalance = useSelector(state => state.tokens.selectedTokenBalance);
+  const selectedTokenDisplayBalance = useSelector(state => state.tokens.selectedTokenDisplayBalance);
   const selectedTokenRawBalance = useSelector(state => state.tokens.selectedTokenRawBalance);
   const selectedFromChain = useSelector(state => state.network.selectedFromChain);
   const selectedToChain = useSelector(state => state.network.selectedToChain);
@@ -604,9 +621,12 @@ function App() {
           let userBalance = await tokenContract.balanceOf(userAddress);
           let decimals = await tokenContract.decimals();
           let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
-          if (balance != undefined) balance = balance.toFixed(2);
+          let displayBalance = "-";
+          if(balance != undefined) {
+            displayBalance = toFixed(balance, 4);
+          }
           checkUserBalance(selectedTokenAmount);
-          dispatch(updateSelectedTokenBalance(balance, userBalance.toString()));
+          dispatch(updateSelectedTokenBalance(balance, userBalance.toString(), displayBalance));
           return balance;
         }
       } else {
@@ -1397,6 +1417,13 @@ function App() {
     }
   }
 
+  const onBalanceClick = () => {
+    if(selectedTokenRawBalance && selectedToken && selectedToken.decimal != undefined) {
+      let balance = selectedTokenRawBalance.toString() / BigNumber.from(10).pow(selectedToken.decimal).toString();
+      handleTokenAmount({target: {value: balance}});
+    }
+  }
+
   return (
     <AppWrapper>
       <ReactNotification />
@@ -1522,10 +1549,14 @@ function App() {
 
             {/* <div className={`${classes.cardRow}`}> */}
             <div className={classes.balanceRow}>
-              {selectedTokenBalance != undefined &&
-                <span>Balance: {selectedTokenBalance}</span>
+              {selectedTokenDisplayBalance != undefined &&
+                <div className={classes.balanceContainer}>
+                  Balance: 
+                  <div className={classes.balance} >{selectedTokenDisplayBalance}</div>
+                  <div className={classes.maxBalanceButton} onClick={onBalanceClick}>(Max)</div>
+                </div>
               }
-              {selectedTokenBalance == undefined &&
+              {selectedTokenDisplayBalance == undefined &&
                 <span>-</span>
               }
             </div>
