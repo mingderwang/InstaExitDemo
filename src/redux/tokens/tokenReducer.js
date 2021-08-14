@@ -17,6 +17,7 @@ const initialState = {
   minDeposit: undefined,
   maxDeposit: undefined,
   selectedTokenBalance: undefined,
+  selectedTokenDisplayBalance: undefined,
   selectedTokenRawBalance: undefined,
   tokenAmount: 0
 }
@@ -58,6 +59,7 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         selectedTokenBalance: action.payload.balance,
+        selectedTokenDisplayBalance: action.payload.displayBalance,
         selectedTokenRawBalance: action.payload.rawBalance
       }
     case SET_MIN_DEPOSIT:
