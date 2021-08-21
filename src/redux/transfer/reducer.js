@@ -39,7 +39,8 @@ const initialState = {
   depositHash: undefined,
   depositStatus: undefined,
   transferHash: undefined,
-  transferStatus: undefined
+  transferStatus: undefined,
+  useBiconomy: true
 }
 
 const reducer = (state = initialState, action) => {

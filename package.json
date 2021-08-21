@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@apollo/client": "^3.3.21",
-    "@biconomy/hyphen": "^0.0.9",
+    "@biconomy/hyphen": "^0.0.10",
     "@biconomy/mexa": "^1.5.10",
     "@material-ui/core": "^4.9.0",
     "@material-ui/icons": "^4.11.2",
@@ -39,7 +39,7 @@
     "web3": "^1.2.5-rc.0"
   },
   "scripts": {
-    "start": "PORT=6005 REACT_APP_ENV=test REACT_APP_DAPP_ID=95690f7c-6c8a-474c-8931-06229df9fba8 react-scripts start",
+    "start": "PORT=6005 REACT_APP_DAPP_ID=95690f7c-6c8a-474c-8931-06229df9fba8 react-scripts start",
     "start:prod": "REACT_APP_ENV=prod REACT_APP_DAPP_ID=0f962064-606e-434e-9512-785b1b7fa285 PORT=6005 react-scripts start",
     "start:test": "REACT_APP_ENV=test REACT_APP_DAPP_ID=0f962064-606e-434e-9512-785b1b7fa285 PORT=6005 react-scripts start",
     "build": "react-scripts build",

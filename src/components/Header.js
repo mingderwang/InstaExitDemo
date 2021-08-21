@@ -1,14 +1,19 @@
 import React from 'react'
-import { makeStyles } from '@material-ui/core/styles';
+import { makeStyles, withStyles} from '@material-ui/core/styles';
 import styled from 'styled-components'
 import Button from '@material-ui/core/Button';
 import { useSelector, useDispatch } from 'react-redux'
 import TrimmedText from "../components/util/TrimmedText";
+import InfoIcon from '@material-ui/icons/Info';
 import { config as cssConfig } from "../css-config";
+import { config } from '../config';
+import Tooltip from '@material-ui/core/Tooltip';
 import EthIcon from "eth-icon";
 import UserDetails from "./user/UserDetails";
 import CallMadeIcon from '@material-ui/icons/CallMade';
-import { updateUserState } from "../redux";
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import Switch from '@material-ui/core/Switch';
+import { updateTransferState, updateUserState } from "../redux";
 
 const HeaderWrapper = styled.div`
   display: flex;
@@ -53,6 +58,26 @@ const ConnectWalletWrapper = styled.div`
     padding: 5px,
 `
 
+const UseBiconomySwitchWrapper = styled.div`
+    color: #fff;
+    margin-right: 20px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+`
+
+const LightTooltip = withStyles((theme) => ({
+    tooltip: {
+      backgroundColor: theme.palette.common.white,
+      color: 'rgba(0, 0, 0, 0.87)',
+      boxShadow: theme.shadows[1],
+      fontSize: 13,
+      maxWidth: 200,
+      marginRight: "10px"
+    },
+}))(Tooltip);
+
 const useStyles = makeStyles((theme) => ({
     headerItems: {
         marginTop: "2px"
@@ -92,9 +117,53 @@ const useStyles = makeStyles((theme) => ({
         justifyContent: "center",
         padding: "2px 5px",
         marginLeft: "20px"
+    },
+    useBiconomySwitch: {
+        color: "#CCBA5C"
+    },
+    infoIcon: {
+        marginRight: "10px",
+        width: "18px",
+        color: "#CCBA5C"
+    },
+    gaslessModeLable: {
+        marginRight: "20px",
+        color: "#CCBA5C"
     }
 }));
 
+const HyphenSwitch = withStyles((theme) => ({
+    root: {
+        width: 28,
+        height: 16,
+        padding: 0,
+        display: 'flex',
+    },
+    switchBase: {
+        padding: 2,
+        color: "#CCBA5C",
+        '&$checked': {
+            transform: 'translateX(12px)',
+            color: theme.palette.common.black,
+            '& + $track': {
+                opacity: 1,
+                backgroundColor: "#CCBA5C",
+                borderColor: theme.palette.common.white,
+            },
+        },
+    },
+    thumb: {
+        width: 12,
+        height: 12,
+        boxShadow: 'none',
+    },
+    track: {
+        borderRadius: 16 / 2,
+        opacity: 1,
+        backgroundColor: "#111"
+    },
+    checked: {}
+}))(Switch);
 
 function Header(props) {
     const dispatch = useDispatch();
@@ -102,6 +171,7 @@ function Header(props) {
 
     const selectedWallet = useSelector(state => state.network.selectedWallet);
     const selectedUserAddress = useSelector(state => state.user.userAddress);
+    const useBiconomy = useSelector(state => state.transfer.useBiconomy);
 
     const onClickNetworkChange = () => {
         if(props.onClickNetworkChange) {
@@ -118,6 +188,18 @@ function Header(props) {
     const onClickUserAddress = () => {
         dispatch(updateUserState({showUserDetails: true}))
     }
+
+    const onClickGaslessSwitch = () => {
+        
+        if(localStorage) {
+            if(useBiconomy) {
+                localStorage.removeItem(config.useBiconomyKey);
+            } else {
+                localStorage.setItem(config.useBiconomyKey, true);
+            }
+        }
+        dispatch(updateTransferState({useBiconomy: !useBiconomy}));
+    }
     
     return (
         <HeaderWrapper>
@@ -130,7 +212,20 @@ function Header(props) {
             <UserDetails onClickWalletChange={props.onClickWalletChange}/>
 
             
-            <RightMenuWrapper className={classes.headerItems}>                
+            <RightMenuWrapper className={classes.headerItems}>
+
+                <UseBiconomySwitchWrapper >
+                    <LightTooltip title={`This button will toggle Hyphen gasless feature for your wallet. Users with hardware wallets should keep this setting turned off.`} 
+                    placement="down">
+                        <InfoIcon className={`${classes.infoIcon}`} />
+                    </LightTooltip>
+                    <div className={classes.gaslessModeLable}>{`Gasless Mode`}</div>
+                    <FormControlLabel
+                        className={classes.useBiconomySwitch}
+                        control={<HyphenSwitch checked={useBiconomy} onChange={onClickGaslessSwitch} name="useBiconomy" />}
+                    />
+                </UseBiconomySwitchWrapper>
+
                 {!selectedWallet &&
                     <ConnectWalletWrapper>
                         <Button variant="contained" onClick={onClickConnectWallet} className={classes.connectWallet}>
