@@ -306,7 +306,7 @@ function App() {
   const fromLPManagerAddress = useSelector(state => state.network.fromLPManagerAddress);
   const toLPManagerAddress = useSelector(state => state.network.toLPManagerAddress);
   const selectedWalletFromStore = useSelector(state => state.network.selectedWallet);
-
+  
   let toLPManager;
   if(toChainProvider && toLPManagerAddress) {
     toLPManager = new ethers.Contract(toLPManagerAddress, config.lpManagerABI, toChainProvider);
@@ -330,7 +330,8 @@ function App() {
   const currentTransferStep = useSelector(state => state.transfer.currentStep);
   const openTransferDetails = useSelector(state => state.transfer.showTransferDetailsModal);
   const showApprovePopup = useSelector(state => state.transfer.showApprovePopup);
-
+  const useBiconomy = useSelector(state => state.transfer.useBiconomy);
+  
   const selectedTokenRef = useRef(selectedToken);
 
   const [userAddress, setUserAddress] = useState();
@@ -358,6 +359,16 @@ function App() {
       if (provider) {
         dispatch(updateTransferButtonState(false, "Give wallet approval"));
         console.log("Enable wallet to give permission to use the address");
+
+        if(localStorage) {
+          let useBiconomy = localStorage.getItem(config.useBiconomyKey);
+          if(useBiconomy) {
+            dispatch(updateTransferState({useBiconomy: true}));
+          } else {
+            dispatch(updateTransferState({useBiconomy: false}));
+          }
+        }
+
         await provider.enable();
         ethersProvider = new ethers.providers.Web3Provider(provider, "any");
         signer = ethersProvider.getSigner();
@@ -404,6 +415,8 @@ function App() {
         if (userAddress) {
           setUserAddress(userAddress);
         }
+        
+        
         
         console.log("Initializing Hyphen");
         await hyphen.init();
@@ -999,7 +1012,8 @@ function App() {
           rawAmount = rawAmount.toLocaleString('fullwide', {useGrouping:false})
           rawAmount = BigNumber.from(rawAmount).toHexString();
 
-          let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, userAddress, infiniteApproval);
+          let approveTx = await hyphen.approveERC20(selectedToken.address, fromLPManagerAddress, rawAmount, 
+            userAddress, infiniteApproval, useBiconomy);
           trackTransactionHash(approveTx.hash, {isApprovalTransaction: true});
           let notificationId;
           if(!notify) {
@@ -1020,6 +1034,7 @@ function App() {
         if(error.message && error.message.indexOf("User denied transaction signature") > -1) {
           showErrorMessage("User denied transaction. Unable to proceed");
         } else {
+          console.log(error);
           showErrorMessage("Unable to get token approval");
         }
         checkTokenApproval(selectedTokenAmount);
@@ -1091,6 +1106,7 @@ function App() {
               amount: amount.toString(),
               fromChainId: fromChainId,
               toChainId: toChainId,
+              useBiconomy: useBiconomy
             });
 
             // showFeedbackMessage(`Waiting for deposit confirmation on ${selectedFromChain.name}`);
@@ -1129,7 +1145,8 @@ function App() {
               showInfoMessage(`Please confirm Approval transaction in your wallet`);
               dispatch(updateApproveButtonState(false, true, "Processing ..."));
               dispatch(updateTransferButtonState(false, "Transfer"));
-              let approveTx = await hyphen.approveERC20(selectedToken.address, transferStatus.depositContract, amount.toString(), userAddress);
+              let approveTx = await hyphen.approveERC20(selectedToken.address, transferStatus.depositContract, 
+                amount.toString(), userAddress, infiniteApproval, useBiconomy);
               trackTransactionHash(approveTx.hash, {isApprovalTransaction: true});
               showFeedbackMessage(`Waiting for approval confirmation`);
               await approveTx.wait(1);

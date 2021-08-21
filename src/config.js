@@ -317,4 +317,5 @@ config.transactionStatus = {
     FAILED: "Failed",
     CONFIRMED: "Confirmed"
 }
+config.useBiconomyKey = "USE_BICONOMY";
 module.exports = { config }
