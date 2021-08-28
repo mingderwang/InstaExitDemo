@@ -3,7 +3,7 @@ const PROD_ENVIRONMENT = "prod";
 let USDCLogo = require("./assets/usdc.png");
 let USDTLogo = require("./assets/usdt.png");
 let DAILogo = require("./assets/dai.png");
-
+let ETHLogo = require("./assets/Ethereum.png");
 
 let getEnv = () => {
     return process.env.REACT_APP_ENV;
@@ -11,11 +11,13 @@ let getEnv = () => {
 
 let config = {};
 config.getEnv = getEnv;
+config.NATIVE_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
 config.tokenLogoMap = {
   "USDC": USDCLogo,
   "USDT": USDTLogo,
-  "DAI": DAILogo
+  "DAI": DAILogo,
+  "ETH": ETHLogo
 }
 
 let walletSelect = {
@@ -30,6 +32,8 @@ let MUMBAI = {
     chainId: 80001,
     rpcUrl: "https://rpc-mumbai.maticvigil.com",
     currency: "Test MATIC",
+    nativeToken: config.NATIVE_ADDRESS,
+    nativeDecimal: 18,
     nativeFaucetURL: "https://faucet.matic.network/",
     biconomy: {
         enable: true,
@@ -50,6 +54,8 @@ let ETHEREUM = {
     chainId: 1,
     rpcUrl: "https://mainnet.infura.io/v3/d126f392798444609246423b06116c77",
     currency: "ETH",
+    nativeToken: config.NATIVE_ADDRESS,
+    nativeDecimal: 18,
     nativeFaucetURL: "",
     assetSentTopicId: "0xec1dcc5633614eade4a5730f51adc7444a5103a8477965a32f2e886f5b20f694",
     onboardConfig : {
@@ -69,6 +75,8 @@ let MATIC = {
     chainId: 137,
     rpcUrl: "https://rpc-mainnet.maticvigil.com",
     currency: "MATIC",
+    nativeToken: config.NATIVE_ADDRESS,
+    nativeDecimal: 18,
     nativeFaucetURL: "",
     biconomy: {
         enable: true,
@@ -89,6 +97,8 @@ let GOERLI = {
     chainId: 5,
     rpcUrl: "https://goerli.infura.io/v3/d126f392798444609246423b06116c77",
     currency: "Goerli ETH",
+    nativeToken: config.NATIVE_ADDRESS,
+    nativeDecimal: 18,
     nativeFaucetURL: "https://faucet.goerli.mudit.blog/",
     assetSentTopicId: "0xec1dcc5633614eade4a5730f51adc7444a5103a8477965a32f2e886f5b20f694",
     biconomy: {
@@ -230,24 +240,59 @@ config.tokensMap = {
             symbol: "DAI"
         }
     },
-
+    "ETH" : {
+        80001: {
+            address: "0xa6fa4fb5f76172d178d61b04b0ecd319c5d1c0aa",
+            transferOverhead: 29766,
+            decimal: 18,
+            symbol: "ETH"
+        },
+        5: {
+            address: config.NATIVE_ADDRESS,
+            transferOverhead: 29766,
+            decimal: 18,
+            symbol: "ETH"
+        },
+        137: {
+            address: "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619",
+            transferOverhead: 29766,
+            decimal: 18,
+            symbol: "ETH"
+        },
+        1: {
+            address: config.NATIVE_ADDRESS,
+            transferOverhead: 29766,
+            decimal: 18,
+            symbol: "ETH"
+        }
+    }
 }
 
 config.tokenAddressMap = {
-    "0x64ef393b6846114bad71e2cb2ccc3e10736b5716" : {5 : config.tokensMap["USDT"][5]},
-    "0xeabc4b91d9375796aa4f69cc764a4ab509080a58" : {80001 : config.tokensMap["USDT"][80001]},
-    "0xdac17f958d2ee523a2206206994597c13d831ec7" : {1 : config.tokensMap["USDT"][1]},
-    "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" : {137 : config.tokensMap["USDT"][137]},
-
-    "0xb5b640e6414b6def4fc9b3c1eef373925effeccf" : {5 : config.tokensMap["USDC"][5]},
-    "0xda5289fcaaf71d52a80a254da614a192b693e977" : {80001 : config.tokensMap["USDC"][80001]},
-    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" : {1 : config.tokensMap["USDC"][1]},
-    "0x2791bca1f2de4661ed88a30c99a7a9449aa84174" : {137 : config.tokensMap["USDC"][137]},
-
-    "0x2686eca13186766760a0347ee8eeb5a88710e11b" : {5 : config.tokensMap["DAI"][5]},
-    "0x27a44456bEDb94DbD59D0f0A14fE977c777fC5C3" : {80001 : config.tokensMap["DAI"][80001]},
-    "0x6b175474e89094c44da98b954eedeac495271d0f" : {1 : config.tokensMap["DAI"][1]},
-    "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063" : {137 : config.tokensMap["DAI"][137]},
+    1 : {
+        "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" : config.tokensMap["ETH"][1],
+        "0xdac17f958d2ee523a2206206994597c13d831ec7" : config.tokensMap["USDT"][1],
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" : config.tokensMap["USDC"][1],
+        "0x6b175474e89094c44da98b954eedeac495271d0f" : config.tokensMap["DAI"][1]
+    },
+    5 : {
+        "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" : config.tokensMap["ETH"][5],
+        "0x64ef393b6846114bad71e2cb2ccc3e10736b5716" : config.tokensMap["USDT"][5],
+        "0xb5b640e6414b6def4fc9b3c1eef373925effeccf" : config.tokensMap["USDC"][5],
+        "0x2686eca13186766760a0347ee8eeb5a88710e11b" : config.tokensMap["DAI"][5]
+    },
+    80001 : {
+        "0xa6fa4fb5f76172d178d61b04b0ecd319c5d1c0aa" : config.tokensMap["ETH"][80001],
+        "0xeabc4b91d9375796aa4f69cc764a4ab509080a58" : config.tokensMap["USDT"][80001],
+        "0xda5289fcaaf71d52a80a254da614a192b693e977" : config.tokensMap["USDC"][80001],
+        "0x27a44456bEDb94DbD59D0f0A14fE977c777fC5C3" : config.tokensMap["DAI"][80001]
+    },
+    137 : {
+        "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619" : config.tokensMap["ETH"][137],
+        "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" : config.tokensMap["USDT"][137],
+        "0x2791bca1f2de4661ed88a30c99a7a9449aa84174" : config.tokensMap["USDC"][137],
+        "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063" : config.tokensMap["DAI"][137]
+    }
 }
 
 config.changeRPCPayload = {
@@ -275,6 +320,7 @@ config.changeRPCPayload = {
     },
 
 }
+
 
 config.explorerURLMap = {
     80001: "https://mumbai.polygonscan.com/tx/",
@@ -318,4 +364,9 @@ config.transactionStatus = {
     CONFIRMED: "Confirmed"
 }
 config.useBiconomyKey = "USE_BICONOMY";
+
+config.isNativeAddress = (address) => {
+    return address && (address.toLowerCase() === config.NATIVE_ADDRESS);
+}
+
 module.exports = { config }

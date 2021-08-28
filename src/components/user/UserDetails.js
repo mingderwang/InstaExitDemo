@@ -283,7 +283,7 @@ export default function UserDetails(props) {
     let getTokenInfo = (rawAmount, tokenAddress, chainId) => {
         console.log("getting token info");
         let formattedAmount = rawAmount;
-        let tokenInfo = config.tokenAddressMap[tokenAddress.toLowerCase()][chainId];
+        let tokenInfo = config.tokenAddressMap[chainId][tokenAddress.toLowerCase()];
         let symbol;
         if(tokenInfo) {
             symbol = tokenInfo.symbol

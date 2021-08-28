@@ -630,10 +630,19 @@ function App() {
         console.log(`User address is ${userAddress}`)
         let tokenAddress = selectedToken.address;
         if(tokenAddress) {
+          let balance;
+          let userBalance;
+          if(tokenAddress.toLowerCase() === config.NATIVE_ADDRESS) {
+            userBalance = await ethersProvider.getBalance(userAddress);
+            let decimals = selectedFromChain.nativeDecimal;
+            balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
+          
+          } else {
           let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
-          let userBalance = await tokenContract.balanceOf(userAddress);
+            userBalance = await tokenContract.balanceOf(userAddress);
           let decimals = await tokenContract.decimals();
-          let balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
+            balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
+          }
           let displayBalance = "-";
           if(balance != undefined) {
             displayBalance = toFixed(balance, 4);
@@ -893,9 +902,13 @@ function App() {
       }
     }
     if(selectedToken && selectedToken.tokenSymbol && selectedToChain && selectedToChain.chainId) {
+      let fixedDecimalPoint = 2;
+      if(config.isNativeAddress(selectedToken.address)) {
+        fixedDecimalPoint = 5;
+      }
       let lpFeeAmount = (parseFloat(lpFee)*parseFloat(amount))/100;
       if(lpFeeAmount) {
-        lpFeeAmount = lpFeeAmount.toFixed(2);
+        lpFeeAmount = lpFeeAmount.toFixed(fixedDecimalPoint);
         setLpFeeAmount(lpFeeAmount.toString());
       }
 
@@ -906,7 +919,9 @@ function App() {
         // Check the balance again using tokenAmount
         let userBalanceCheck = await checkUserBalance(amount);
         if(userBalanceCheck) {
+          if(!config.isNativeAddress(selectedToken.address)) {
           await checkTokenApproval(amount);
+          }
           if(fetchResponse && fetchResponse.json) {
             let response = await fetchResponse.json();
             if (response && response.tokenGasPrice != undefined) {
@@ -925,9 +940,12 @@ function App() {
                         if(amountToGet > 0) {
                           dispatch(updateTransactionFee(transactionFee, selectedToken.tokenSymbol));
                           setShowEstimation(true);
-                          amountToGet = amountToGet.toFixed(2);
+                          amountToGet = amountToGet.toFixed(fixedDecimalPoint);
                           setEstimatedTokensToGet(amountToGet);
                           dispatch(updateEstimatedAmountToGet(amountToGet));
+                          if(config.isNativeAddress(selectedToken.address)) {
+                            dispatch(updateTransferButtonState(true, "Transfer"));
+                          }
                         } else {
                           dispatch(updateTransferButtonState(false, "Amount to transfer too low"));
                         }
@@ -1070,7 +1088,12 @@ function App() {
 
       // showFeedbackMessage("Initiaiting Transfer");
       dispatch(updateTransferButtonState(false, "Transfer"));
-      let tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
+      let tokenDecimals;
+      if(config.isNativeAddress(selectedToken.address)) {
+        tokenDecimals = selectedFromChain.nativeDecimal;
+      } else {
+        tokenDecimals = await hyphen.getERC20TokenDecimals(selectedToken.address);
+      }
 
       amount = amount * Math.pow(10, tokenDecimals);
       amount = amount.toLocaleString('fullwide', {useGrouping:false})
@@ -1245,7 +1268,11 @@ function App() {
                         let token = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
                         let tokenDecimal = token.decimal;
                         amount = parseFloat(amount)/parseFloat(ethers.BigNumber.from(10).pow(tokenDecimal))
-                        if(amount) amount = amount.toFixed(2);
+                        let fixedDecimalPoint = 2;
+                        if(config.isNativeAddress(selectedToken.address)) {
+                          fixedDecimalPoint = 5;
+                        }
+                        if(amount) amount = amount.toFixed(fixedDecimalPoint);
                       }
   
                       if(amount) {

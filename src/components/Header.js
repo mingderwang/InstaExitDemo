@@ -216,7 +216,7 @@ function Header(props) {
 
                 <UseBiconomySwitchWrapper >
                     <LightTooltip title={`This button will toggle Hyphen gasless feature for your wallet. Users with hardware wallets should keep this setting turned off.`} 
-                    placement="down">
+                    placement="bottom">
                         <InfoIcon className={`${classes.infoIcon}`} />
                     </LightTooltip>
                     <div className={classes.gaslessModeLable}>{`Gasless Mode`}</div>
