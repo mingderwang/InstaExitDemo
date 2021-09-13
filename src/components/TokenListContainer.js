@@ -44,7 +44,6 @@ function TokenListContainer(props) {
 
     useEffect(() => {
         if (hyphen) {
-            console.log(props.fromChainId);
             let tokenList = hyphen.getSupportedTokens(props.fromChainId);
             console.log('Supported token list for network id ', props.fromChainId, ' is ', tokenList);
             if(tokenList) {

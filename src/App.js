@@ -60,7 +60,7 @@ import TransferActivity from "./components/transfer/TransferActivity.";
 import TransferDetails from "./components/transfer/TransferDetails"; 
 import CustomNotification from "./components/CustomNotification";
 import ApprovePopup from "./components/transfer/ApprovePopup";
-import { toFixed } from "./util";
+import { getFixedDecimalPoint, toFixed } from "./util";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -88,7 +88,7 @@ const IconWrapper = styled.div`
     align-items: center;
 `
 
-let ethersProvider, signer;
+let ethersProvider, ethersWalletProvider, signer;
 let contract, contractInterface, contractWithBasicSign;
 
 let chainLogoMap = {
@@ -353,9 +353,17 @@ function App() {
   const [openTransferActivity, setOpenTransferActivity] = useState(false);
   const [infiniteApproval, setInfiniteApproval] = useState(true);
 
-  async function init(provider) {
-    try {
+  function getBiconomyMode() {
+    let useBiconomy = localStorage.getItem(config.useBiconomyKey);
+    if(useBiconomy && useBiconomy === "true") {
+      return true;
+    } else {
+      return false;
+    }
+  }
 
+  async function init({provider, walletProvider}) {
+    try {
       if (provider) {
         dispatch(updateTransferButtonState(false, "Give wallet approval"));
         console.log("Enable wallet to give permission to use the address");
@@ -368,10 +376,33 @@ function App() {
             dispatch(updateTransferState({useBiconomy: false}));
           }
         }
-
+        if(provider.enable) {
         await provider.enable();
+        }
+        if(walletProvider.enable) {
+          await walletProvider.enable();
+        }
+
+        if(ethers.providers.Provider.isProvider(provider)) {
+          ethersProvider = provider;
+        } else {
         ethersProvider = new ethers.providers.Web3Provider(provider, "any");
-        signer = ethersProvider.getSigner();
+        }
+        ethersWalletProvider = new ethers.providers.Web3Provider(walletProvider, "any");
+        let onNetworkChanged = (newNetwork, oldNetwork) => {
+          // When a Provider makes its initial connection, it emits a "network"
+          // event with a null oldNetwork along with the newNetwork. So, if the
+          // oldNetwork exists, it represents a changing network
+          if (oldNetwork) {
+              window.location.reload();
+          }
+        };
+        ethersProvider.on("network", onNetworkChanged);
+        if(provider != walletProvider) {
+          ethersWalletProvider.on("network", onNetworkChanged);
+        }
+
+        signer = ethersWalletProvider.getSigner();
 
         console.log("Getting current network from wallet");
         let network = await ethersProvider.getNetwork();
@@ -379,10 +410,9 @@ function App() {
         
         let walletChain = config.chainIdMap[network.chainId];
 
-        if(network && network.chainId && Object.keys(config.chainIdMap).includes(network.chainId.toString())) {
-          onFromChainSelected({target: {value: network.chainId}});
-        } else {
-          checkNetwork(selectedFromChain);
+        let status = await checkNetwork(selectedFromChain);
+        if(!status) {
+          return;
         }
   
         console.log("Initializing blocknative notify");
@@ -408,7 +438,8 @@ function App() {
             infiniteApproval: infiniteApproval,
             environment: config.getEnv(),
             biconomy: biconomyOptions,
-            signatureType: SIGNATURE_TYPES.EIP712
+            signatureType: SIGNATURE_TYPES.EIP712,
+            walletProvider
         });
         
         let userAddress = await signer.getAddress();
@@ -416,24 +447,22 @@ function App() {
           setUserAddress(userAddress);
         }
         
-        
-        
         console.log("Initializing Hyphen");
         await hyphen.init();
         console.log("Hyphen initialized");
   
-  
         // updateFaucetBalance();
         setHyphen(hyphen);
         
-        ethersProvider.on("network", (newNetwork, oldNetwork) => {
-          // When a Provider makes its initial connection, it emits a "network"
-          // event with a null oldNetwork along with the newNetwork. So, if the
-          // oldNetwork exists, it represents a changing network
-          if (oldNetwork) {
-              window.location.reload();
+        // Initialize Token
+        if (hyphen && selectedFromChain && selectedFromChain.chainId) {
+          let tokenList = hyphen.getSupportedTokens(selectedFromChain.chainId);
+          if (tokenList) {
+            dispatch(updateSupportedTokensAndSelectedToken(tokenList));
+          } else {
+            showErrorMessage(`Unable to get supported token list for network id ${selectedFromChain.chainId} `)
           }
-        });
+        }
   
         dispatch(updateTransferButtonState(false, "Enter an amount"));
         // try {
@@ -445,8 +474,7 @@ function App() {
         // }
   
         // Hanlde user address change
-        if(provider.on) {          
-          provider.on('accountsChanged', function (accounts) {
+        let onAccountsChanged = (accounts) => {
             console.log(`Address changed EVENT`);
             console.log(`New account info`, accounts);
   
@@ -456,7 +484,12 @@ function App() {
                 setUserAddress(newUserAddress);
               }
             }
-          })
+        }
+        if(provider.on) {
+          provider.on('accountsChanged', onAccountsChanged);
+        }
+        if(provider != walletProvider && walletProvider.on) {
+          walletProvider.on('accountsChanged', onAccountsChanged);
         }
       } else {
         console.log("provider is not defined");
@@ -506,7 +539,7 @@ function App() {
   }
 
   const checkForNegativeAmount = (amountToGet) => {
-    if(amountToGet && amountToGet < 5) {
+    if(amountToGet <= 0) {
       dispatch(updateApproveButtonState(false, false, "Approve"));
       dispatch(updateTransferButtonState(false, "Amount too low"));
     }
@@ -523,19 +556,39 @@ function App() {
   const connectToLastSelectedWallet = () => {
     if(localStorage) {
       let lastSelectedWallet = localStorage.getItem(config.selectedWalletKey);
-      if(lastSelectedWallet && !selectedWalletFromStore) {
+      if(lastSelectedWallet) {
         switch(lastSelectedWallet) {
           case config.WALLET.METAMASK:
             if (window && typeof window.ethereum !== "undefined" &&
               window.ethereum.isMetaMask) {
-                let _provider = window["ethereum"];
-                init(_provider);
+                let {provider, walletProvider} = getProviders(window["ethereum"], selectedFromChain);
+                init({
+                  provider, walletProvider
+                });
                 updateWallet(lastSelectedWallet);
             }
             break;
         }
       }
     }
+  }
+
+  const getNetworkAgnosticMode = (selectedChain) => {
+    let networkAgnosticMode = false;
+    if(selectedChain) {
+      networkAgnosticMode = selectedChain.networkAgnosticTransfer && selectedChain.rpcUrl && getBiconomyMode();
+    }
+    return networkAgnosticMode;
+  }
+
+  const getProviders = (_provider, selectedFromChain) => {
+    let provider = _provider;
+    let walletProvider = _provider;
+    let useBiconomy = getBiconomyMode();
+    if(getNetworkAgnosticMode(selectedFromChain)) {
+      provider = new ethers.providers.JsonRpcProvider(selectedFromChain.rpcUrl);
+    }
+    return {provider, walletProvider};
   }
 
   useEffect(() => {
@@ -546,17 +599,8 @@ function App() {
   useEffect(() => {
     (async ()=>{
       if(selectedFromChain) {
-        if(signer && ethersProvider) {
-          let status = await checkNetwork(selectedFromChain);
-          if (hyphen && selectedFromChain.chainId && status) {
-            let tokenList = hyphen.getSupportedTokens(selectedFromChain.chainId);
-            if (tokenList) {
-              dispatch(updateSupportedTokensAndSelectedToken(tokenList));
-            } else {
-              showErrorMessage(`Unable to get supported token list for network id ${selectedFromChain.chainId} `)
-            }
-          }
-        }
+        // await checkNetwork(selectedFromChain);
+        handleTokenAmount({target: {value: 0}});
         let initOnboard = async () => {
           // Initialize Onboard
           onboard = Onboard({
@@ -564,7 +608,10 @@ function App() {
             hideBranding: true,
             subscriptions: {
               wallet: wallet => {
-                 init(wallet.provider);
+                 let {provider, walletProvider} = getProviders(wallet.provider, selectedFromChain);
+                 init({
+                    provider, walletProvider
+                  });
                  updateWallet(wallet.name);
               }
             }
@@ -633,19 +680,19 @@ function App() {
           let balance;
           let userBalance;
           if(tokenAddress.toLowerCase() === config.NATIVE_ADDRESS) {
-            userBalance = await ethersProvider.getBalance(userAddress);
+            userBalance = await ethersWalletProvider.getBalance(userAddress);
             let decimals = selectedFromChain.nativeDecimal;
             balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
           
           } else {
-          let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, signer);
+          let tokenContract = new ethers.Contract(tokenAddress, config.abi.erc20, ethersProvider);
             userBalance = await tokenContract.balanceOf(userAddress);
           let decimals = await tokenContract.decimals();
             balance = userBalance.toString() / BigNumber.from(10).pow(decimals).toString();
           }
           let displayBalance = "-";
           if(balance != undefined) {
-            displayBalance = toFixed(balance, 4);
+            displayBalance = toFixed(balance, getFixedDecimalPoint(selectedToken.tokenSymbol, selectedFromChain.chainId, 4));
           }
           checkUserBalance(selectedTokenAmount);
           dispatch(updateSelectedTokenBalance(balance, userBalance.toString(), displayBalance));
@@ -712,12 +759,23 @@ function App() {
 
   const checkNetwork = async (fromChain) => {
     let status = true;
+    let useBiconomy = getBiconomyMode();
+    if(useBiconomy && selectedFromChain.networkAgnosticTransfer) {
+      console.log(`Network Agnostic Approach is enabled for ${selectedFromChain.name} and Gasless mode is ON, so not checking current Network`)
+      return status;
+    }
+
     if (signer && ethersProvider && fromChain) {
       let currentNetwork = await ethersProvider.getNetwork();
       if (currentNetwork.chainId != fromChain.chainId) {
         status = false;
         checkAndShowSwitchNetworkButton(fromChain);
-        showErrorMessage(`Please switch your wallet to ${fromChain.name} network`);
+        dispatch(updateSelectedTokenBalance());
+        let errorMessage = `Please switch your wallet to ${fromChain.name} network`;
+        if (fromChain.biconomy && fromChain.biconomy.enable && fromChain.networkAgnosticTransfer) {
+          errorMessage += ` or enable Gasless mode`;
+        }
+        showErrorMessage(errorMessage);
       } else {
         dispatch(toggleSwitchNetworkDisplay(false));
       }
@@ -780,7 +838,6 @@ function App() {
     let currentToChain = selectedToChain;
     setFromChain(selectedNetwork);
     dispatch(updateSelectedFromChain(selectedNetwork));
-    checkNetwork(selectedNetwork);
 
     // If selected 'from' chain and current 'to' chain are same
     console.log('Selected Network: ', selectedNetwork);
@@ -902,10 +959,7 @@ function App() {
       }
     }
     if(selectedToken && selectedToken.tokenSymbol && selectedToChain && selectedToChain.chainId) {
-      let fixedDecimalPoint = 2;
-      if(config.isNativeAddress(selectedToken.address)) {
-        fixedDecimalPoint = 5;
-      }
+      let fixedDecimalPoint = getFixedDecimalPoint(selectedToken.tokenSymbol, selectedFromChain.chainId, 2);
       let lpFeeAmount = (parseFloat(lpFee)*parseFloat(amount))/100;
       if(lpFeeAmount) {
         lpFeeAmount = lpFeeAmount.toFixed(fixedDecimalPoint);
@@ -933,7 +987,7 @@ function App() {
                   if(overhead && decimal) {
                     let transactionFeeRaw = BigNumber.from(overhead).mul(tokenGasPrice);
                     let transactionFee = parseFloat(transactionFeeRaw)/parseFloat(ethers.BigNumber.from(10).pow(decimal));
-                    if(transactionFee) transactionFee = transactionFee.toFixed(2);
+                    if(transactionFee) transactionFee = transactionFee.toFixed(fixedDecimalPoint);
                     if(transactionFee != undefined && lpFeeAmount != undefined && amount) {
                       let amountToGet = parseFloat(amount) - (parseFloat(transactionFee) + parseFloat(lpFeeAmount));
                       if(amountToGet) {
@@ -1268,11 +1322,7 @@ function App() {
                         let token = config.tokensMap[selectedToken.tokenSymbol][selectedToChain.chainId];
                         let tokenDecimal = token.decimal;
                         amount = parseFloat(amount)/parseFloat(ethers.BigNumber.from(10).pow(tokenDecimal))
-                        let fixedDecimalPoint = 2;
-                        if(config.isNativeAddress(selectedToken.address)) {
-                          fixedDecimalPoint = 5;
-                        }
-                        if(amount) amount = amount.toFixed(fixedDecimalPoint);
+                        if(amount) amount = amount.toFixed(getFixedDecimalPoint(selectedToken.tokenSymbol, selectedFromChain.chainId, 2));
                       }
   
                       if(amount) {

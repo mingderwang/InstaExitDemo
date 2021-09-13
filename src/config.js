@@ -46,6 +46,7 @@ let MUMBAI = {
         networkName: "Polygon testnet",
         walletSelect
     },
+    networkAgnosticTransfer: true, // Set this to enable network agnostic gasless transactions
     graphURL : "https://api.thegraph.com/subgraphs/name/divyan73/lpmanagermumbai"
 }
 let ETHEREUM = { 
@@ -89,6 +90,7 @@ let MATIC = {
         networkName: "Polygon Mainnet",
         walletSelect
     },
+    networkAgnosticTransfer: true,
     graphURL : "https://api.thegraph.com/subgraphs/name/divyan73/hyphenpolygon"
 }
 let GOERLI = { 
@@ -245,25 +247,29 @@ config.tokensMap = {
             address: "0xa6fa4fb5f76172d178d61b04b0ecd319c5d1c0aa",
             transferOverhead: 29766,
             decimal: 18,
-            symbol: "ETH"
+            symbol: "ETH",
+            fixedDecimalPoint: 5
         },
         5: {
             address: config.NATIVE_ADDRESS,
             transferOverhead: 29766,
             decimal: 18,
-            symbol: "ETH"
+            symbol: "ETH",
+            fixedDecimalPoint: 5
         },
         137: {
             address: "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619",
             transferOverhead: 29766,
             decimal: 18,
-            symbol: "ETH"
+            symbol: "ETH",
+            fixedDecimalPoint: 5
         },
         1: {
             address: config.NATIVE_ADDRESS,
             transferOverhead: 29766,
             decimal: 18,
-            symbol: "ETH"
+            symbol: "ETH",
+            fixedDecimalPoint: 5
         }
     }
 }
