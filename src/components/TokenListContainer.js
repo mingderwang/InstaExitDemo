@@ -8,17 +8,7 @@ import Select from '@material-ui/core/Select';
 import { useSelector, useDispatch } from 'react-redux'
 import { updateSupportedTokens, updateSelectedToken, updateApproveButtonState, updateTransferButtonState } from '../redux'
 import { useState } from 'react';
-
-
-let USDCLogo = require("../assets/usdc.png");
-let USDTLogo = require("../assets/usdt.png");
-let DAILogo = require("../assets/dai.png");
-
-let tokenLogoMap = {
-  "USDC": USDCLogo,
-  "USDT": USDTLogo,
-  "DAI": DAILogo
-}
+import { config } from '../config';
 
 const useStyles = makeStyles((theme) => ({
     formControl: {
@@ -54,7 +44,6 @@ function TokenListContainer(props) {
 
     useEffect(() => {
         if (hyphen) {
-            console.log(props.fromChainId);
             let tokenList = hyphen.getSupportedTokens(props.fromChainId);
             console.log('Supported token list for network id ', props.fromChainId, ' is ', tokenList);
             if(tokenList) {
@@ -87,7 +76,7 @@ function TokenListContainer(props) {
                 >
                     {tokenList && tokenList.map((token, index) => 
                         <MenuItem value={token.tokenSymbol} key={`${token.tokenSymbol}${index}`}>
-                            <img src={tokenLogoMap[token.tokenSymbol]} className={classes.tokenLogo}/>
+                            <img src={config.tokenLogoMap[token.tokenSymbol]} className={classes.tokenLogo}/>
                             {token.tokenSymbol}
                         </MenuItem>
                     )}
