@@ -52,7 +52,8 @@ import {
   updateEstimatedAmountToGet,
   updateFromChainProvider, updateToChainProvider,
   updateSelectedWallet, updateNetworkState,
-  updateUserState
+  updateUserState,
+  updateReceiverAddress
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
@@ -330,6 +331,7 @@ function App() {
   const currentTransferStep = useSelector(state => state.transfer.currentStep);
   const openTransferDetails = useSelector(state => state.transfer.showTransferDetailsModal);
   const showApprovePopup = useSelector(state => state.transfer.showApprovePopup);
+  const receiverAddress = useSelector(state => state.transfer.recieverAddress);
   const useBiconomy = useSelector(state => state.transfer.useBiconomy);
   
   const selectedTokenRef = useRef(selectedToken);
@@ -414,6 +416,8 @@ function App() {
         if(!status) {
           return;
         }
+
+        dispatch(updateReceiverAddress(await signer.getAddress()));
   
         console.log("Initializing blocknative notify");
         initBlocknativeNotify(network);
@@ -482,6 +486,7 @@ function App() {
               let newUserAddress = accounts[0];
               if (newUserAddress) {
                 setUserAddress(newUserAddress);
+                dispatch(updateReceiverAddress(newUserAddress));
               }
             }
         }
@@ -545,6 +550,15 @@ function App() {
     }
   }
 
+  const checkReceiverAddress = async (address) => {
+    if(!ethers.utils.isAddress(address)) {
+      dispatch(updateApproveButtonState(false, false, "Approve"));
+      dispatch(updateTransferButtonState(false, "Invalid Receiver"));
+    } else {
+      await handleTokenAmount({target: { value: tokenAmount }});
+    }
+  }
+
   const updateWallet = (walletName) => {
     if(walletName) {
       dispatch(updateSelectedWallet(walletName));
@@ -594,6 +608,10 @@ function App() {
   useEffect(() => {
     checkForNegativeAmount(estimatedTokensToGet);
   }, [estimatedTokensToGet])
+
+  useEffect(() => {
+    checkReceiverAddress(receiverAddress);
+  }, [receiverAddress])
 
 
   useEffect(() => {
@@ -911,6 +929,11 @@ function App() {
     }
   }
 
+  const handleReceiverAddress = async (event) => {
+    let address = event.target.value;
+    dispatch(updateReceiverAddress(address));
+  }
+
   const checkTokenApproval = async (amount) => {
     try{
       if(hyphen) {
@@ -1177,7 +1200,7 @@ function App() {
             // showFeedbackMessage("Checking approvals and initiating deposit transaction");
             let depositTx = await deposit({
               sender: await signer.getAddress(),
-              receiver: await signer.getAddress(),
+              receiver: receiverAddress, 
               tokenAddress: selectedToken.address,
               depositContractAddress: transferStatus.depositContract,
               amount: amount.toString(),
@@ -1675,6 +1698,14 @@ function App() {
                 toChainId={selectedToChain ? selectedToChain.chainId : ""} 
                 fromChainId={selectedFromChain ? selectedFromChain.chainId : ""} />
               {/* </FormControl> */}
+            </div>
+            <div className={classes.cardRow} style={{alignItems: "inherit"}}>
+              {/* <FormControl variant="outlined" size="small" className={classes.formControl}> */}
+              <TextField id="receiver-address" size="small" label="Receiver"
+                variant="outlined" className={classes.formControl} type="string"
+                value={receiverAddress}
+                disabled={amountInputDisabled}
+                style={{ flexGrow: 1 }} onChange={handleReceiverAddress} />
             </div>
             {showEstimation &&
               <div className={classes.cardRow}>

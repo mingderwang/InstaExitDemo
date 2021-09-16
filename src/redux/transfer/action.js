@@ -3,7 +3,8 @@ import {
     UPDATE_TRANSFER_STATUS,
     UPDATE_TRANSFER_STEPS_LABEL_ARRAY,
     UPDATE_CURRENT_STATE,
-    UPDATE_TRANSFER_STEPS_CONTENT_ARRAY
+    UPDATE_TRANSFER_STEPS_CONTENT_ARRAY,
+    UPDATE_RECEIVER_ADDRESS
   } from './types';
 
 
@@ -42,5 +43,12 @@ export const updateCurrentState = (currentState) => {
     return {
         type: UPDATE_CURRENT_STATE,
         payload: currentState
+    }
+}
+
+export const updateReceiverAddress = (receiverAddress) => {
+    return {
+        type: UPDATE_RECEIVER_ADDRESS,
+        payload: receiverAddress
     }
 }
