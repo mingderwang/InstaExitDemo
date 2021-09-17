@@ -5,8 +5,7 @@ import {
   UPDATE_TRANSFER_STATUS,
   UPDATE_TRANSFER_STEPS_LABEL_ARRAY,
   UPDATE_TRANSFER_STEPS_CONTENT_ARRAY,
-  UPDATE_CURRENT_STATE,
-  UPDATE_RECEIVER_ADDRESS
+  UPDATE_CURRENT_STATE
 } from './types';
 
 import { transferStepsLabelArray, transferStepsContentArray } from '../../config/transferConfig';
@@ -76,11 +75,6 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         currentState: action.payload
-      }
-    case UPDATE_RECEIVER_ADDRESS: 
-      return {
-        ...state,
-        recieverAddress: action.payload
       }
     default: return state
   }

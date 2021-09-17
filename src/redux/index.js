@@ -11,7 +11,7 @@ export { updateTransactionFee, updateApproveButtonState, updateTransferButtonSta
     updateEstimatedAmountToGet } from './transaction/transactionAction';
 
 export { updateTransferState, updateTransferStatus, updateTransferStepsLabelArray,
-    updateCurrentState, updateTransferStepsContentArray, updateReceiverAddress} from './transfer/action';
+    updateCurrentState, updateTransferStepsContentArray } from './transfer/action';
 
 export { updateUserState } from './user/action';
 

@@ -53,7 +53,6 @@ import {
   updateFromChainProvider, updateToChainProvider,
   updateSelectedWallet, updateNetworkState,
   updateUserState,
-  updateReceiverAddress
 } from "./redux";
 import Faucet from "./components/Faucet";
 import Header from "./components/Header";
@@ -417,7 +416,7 @@ function App() {
           return;
         }
 
-        dispatch(updateReceiverAddress(await signer.getAddress()));
+        dispatch(updateTransferState({ recieverAddress: await signer.getAddress() }));
   
         console.log("Initializing blocknative notify");
         initBlocknativeNotify(network);
@@ -486,7 +485,7 @@ function App() {
               let newUserAddress = accounts[0];
               if (newUserAddress) {
                 setUserAddress(newUserAddress);
-                dispatch(updateReceiverAddress(newUserAddress));
+                dispatch(updateTransferState({ recieverAddress: newUserAddress }));
               }
             }
         }
@@ -931,7 +930,7 @@ function App() {
 
   const handleReceiverAddress = async (event) => {
     let address = event.target.value;
-    dispatch(updateReceiverAddress(address));
+    dispatch(updateTransferState({ recieverAddress: address }));
   }
 
   const checkTokenApproval = async (amount) => {
