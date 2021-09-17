@@ -7,9 +7,11 @@ import MenuItem from '@material-ui/core/MenuItem';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import TextField from '@material-ui/core/TextField';
+import Accordion from '@material-ui/core/Accordion';
 import { useSelector, useDispatch } from 'react-redux'
 import ProgressDialog from './components/ProgressDialog';
 import InfoIcon from '@material-ui/icons/Info';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import SuccessIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import styled from 'styled-components';
@@ -61,6 +63,7 @@ import TransferDetails from "./components/transfer/TransferDetails";
 import CustomNotification from "./components/CustomNotification";
 import ApprovePopup from "./components/transfer/ApprovePopup";
 import { getFixedDecimalPoint, toFixed } from "./util";
+import { AccordionDetails, AccordionSummary } from "@material-ui/core";
 
 let MaticLogo = require("./assets/polygon-matic-logo.png");
 let EthereumLogo = require("./assets/Ethereum.png");
@@ -179,6 +182,12 @@ const useStyles = makeStyles((theme) => ({
     padding: "10px",
     justifyContent: "space-between",
     alignItems: "center"
+  },
+  advancedOptionsAccordionSummary: {
+    marginLeft: 6
+  },
+  receiverAddressInput: {
+    marginLeft: 3,
   },
   feedbackIcon: {
     marginRight: "10px"
@@ -353,6 +362,7 @@ function App() {
   const [amountInputDisabled, setAmountInputDisabled] = useState(true);
   const [openTransferActivity, setOpenTransferActivity] = useState(false);
   const [infiniteApproval, setInfiniteApproval] = useState(true);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   function getBiconomyMode() {
     let useBiconomy = localStorage.getItem(config.useBiconomyKey);
@@ -1698,13 +1708,31 @@ function App() {
                 fromChainId={selectedFromChain ? selectedFromChain.chainId : ""} />
               {/* </FormControl> */}
             </div>
-            <div className={classes.cardRow} style={{alignItems: "inherit"}}>
+            <div className={classes.advancedOptionsAccordion}>
               {/* <FormControl variant="outlined" size="small" className={classes.formControl}> */}
-              <TextField id="receiver-address" size="small" label="Receiver"
-                variant="outlined" className={classes.formControl} type="string"
-                value={receiverAddress}
-                disabled={amountInputDisabled}
-                style={{ flexGrow: 1 }} onChange={handleReceiverAddress} />
+              <Accordion 
+                elevation={0}
+                expanded={showAdvancedOptions} 
+                onChange={() => setShowAdvancedOptions(!showAdvancedOptions)}>
+                <AccordionSummary 
+                  expandIcon={<ExpandMoreIcon />}
+                  aria-controls='advanced-options-content' 
+                  id='advanced-options-header'
+                  className={classes.advancedOptionsAccordionSummary}
+                  >
+                    Advanced Options
+                </AccordionSummary>
+                <AccordionDetails>
+                  <TextField id="receiver-address" size="small" label="Receiver"
+                    variant="outlined" 
+                    type="string"
+                    value={receiverAddress}
+                    disabled={amountInputDisabled}
+                    fullWidth
+                    className={classes.receiverAddressInput}
+                    onChange={handleReceiverAddress} />
+                </AccordionDetails>
+              </Accordion>
             </div>
             {showEstimation &&
               <div className={classes.cardRow}>
